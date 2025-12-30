@@ -1,0 +1,59 @@
+# Test Redis extension
+# Note: All operations are synchronous and return result tuples directly
+
+# Connection type
+type Conn = { handle: Any }
+
+# Native function wrappers - operations return ("ok", value) or ("error", msg) tuples
+redisConnect(url: String) -> Conn = Conn(__native__("Redis.connect", url))
+redisPing(conn: Conn) = __native__("Redis.ping", conn.handle)
+redisSet(conn: Conn, key: String, value: String) = __native__("Redis.set", conn.handle, key, value)
+redisGet(conn: Conn, key: String) = __native__("Redis.get", conn.handle, key)
+redisExists(conn: Conn, key: String) = __native__("Redis.exists", conn.handle, key)
+redisLpush(conn: Conn, key: String, value: String) = __native__("Redis.lpush", conn.handle, key, value)
+redisLrange(conn: Conn, key: String, start: Int, stop: Int) = __native__("Redis.lrange", conn.handle, key, start, stop)
+redisDel(conn: Conn, key: String) = __native__("Redis.del", conn.handle, key)
+
+main() = {
+    println("Connecting to Redis...")
+    conn = redisConnect("redis://127.0.0.1/")
+
+    # Test PING
+    println("Testing PING...")
+    pingResult = redisPing(conn)
+    println("PING response: " ++ show(pingResult))
+
+    # Test SET
+    println("Testing SET...")
+    setResult = redisSet(conn, "nostos:test", "hello from nostos!")
+    println("SET response: " ++ show(setResult))
+
+    # Test GET
+    println("Testing GET...")
+    getResult = redisGet(conn, "nostos:test")
+    println("GET response: " ++ show(getResult))
+
+    # Test EXISTS
+    println("Testing EXISTS...")
+    existsResult = redisExists(conn, "nostos:test")
+    println("EXISTS response: " ++ show(existsResult))
+
+    # Test LIST operations
+    println("Testing LPUSH...")
+    lpush1 = redisLpush(conn, "nostos:list", "item1")
+    println("LPUSH response: " ++ show(lpush1))
+
+    lpush2 = redisLpush(conn, "nostos:list", "item2")
+    println("LPUSH response: " ++ show(lpush2))
+
+    lrangeResult = redisLrange(conn, "nostos:list", 0, -1)
+    println("LRANGE response: " ++ show(lrangeResult))
+
+    # Cleanup
+    println("Cleaning up test keys...")
+    redisDel(conn, "nostos:test")
+    redisDel(conn, "nostos:list")
+
+    println("All tests passed!")
+    0
+}

@@ -1,0 +1,15 @@
+[package]
+name = "nostos-redis"
+version = "0.1.0"
+edition = "2021"
+description = "Async Redis extension for Nostos - non-blocking Tokio-based Redis client"
+repository = "https://github.com/pegesund/nostos-redis"
+license = "MIT"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+nostos-extension = { git = "https://github.com/pegesund/nostos", branch = "master" }
+redis = { version = "0.27", features = ["tokio-comp", "connection-manager"] }
+tokio = { version = "1", features = ["rt", "sync"] }
