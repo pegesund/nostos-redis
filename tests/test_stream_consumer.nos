@@ -1,0 +1,58 @@
+# Test Stream Consumer Group operations
+type Conn = { handle: Any }
+
+redisConnect(url: String) -> Conn = Conn(__native__("Redis.connect", url))
+redisDel(conn: Conn, key: String) = { __native__("Redis.del", conn.handle, key); receive { msg -> msg } }
+redisXadd(conn: Conn, stream: String, fields: List) = { __native__("Redis.xadd", conn.handle, stream, fields); receive { msg -> msg } }
+redisXlen(conn: Conn, stream: String) = { __native__("Redis.xlen", conn.handle, stream); receive { msg -> msg } }
+redisXrange(conn: Conn, stream: String, startId: String, endId: String) = { __native__("Redis.xrange", conn.handle, stream, startId, endId); receive { msg -> msg } }
+redisXread(conn: Conn, streams: List) = { __native__("Redis.xread", conn.handle, streams); receive { msg -> msg } }
+redisXgroupCreate(conn: Conn, stream: String, group: String, startId: String) = { __native__("Redis.xgroup_create", conn.handle, stream, group, startId); receive { msg -> msg } }
+redisXgroupCreateMkstream(conn: Conn, stream: String, group: String, startId: String) = { __native__("Redis.xgroup_create", conn.handle, stream, group, startId, true); receive { msg -> msg } }
+redisXreadgroup(conn: Conn, group: String, consumer: String, streams: List) = { __native__("Redis.xreadgroup", conn.handle, group, consumer, streams); receive { msg -> msg } }
+redisXack(conn: Conn, stream: String, group: String, ids: List) = { __native__("Redis.xack", conn.handle, stream, group, ids); receive { msg -> msg } }
+redisXinfoGroups(conn: Conn, stream: String) = { __native__("Redis.xinfo_groups", conn.handle, stream); receive { msg -> msg } }
+
+isOk(result: (String, Any)) -> Bool = match result { ("ok", _) -> true, _ -> false }
+check(name: String, ok: Bool) = if ok then println("  PASS: " ++ name) else println("  FAIL: " ++ name)
+
+main() = {
+    println("=== Testing Stream Consumer Groups ===")
+    conn = redisConnect("redis://127.0.0.1/")
+
+    # Clean up
+    redisDel(conn, "test:stream2")
+
+    # Create stream with an entry
+    ("ok", id1) = redisXadd(conn, "test:stream2", [("event", "login"), ("user", "alice")])
+    check("XADD 1", length(id1) > 0)
+
+    ("ok", id2) = redisXadd(conn, "test:stream2", [("event", "logout"), ("user", "bob")])
+    check("XADD 2", length(id2) > 0)
+
+    # Read without consumer group
+    ("ok", entries) = redisXread(conn, [("test:stream2", "0")])
+    check("XREAD", length(entries) > 0)
+
+    # Create consumer group
+    check("XGROUP CREATE", isOk(redisXgroupCreate(conn, "test:stream2", "mygroup", "0")))
+
+    # Get group info
+    ("ok", groups) = redisXinfoGroups(conn, "test:stream2")
+    check("XINFO GROUPS", length(groups) > 0)
+
+    # Read as consumer - use ">" to get new undelivered messages
+    # But since we created group at "0", all messages are "new" to the group
+    ("ok", groupEntries) = redisXreadgroup(conn, "mygroup", "worker1", [("test:stream2", ">")])
+    check("XREADGROUP", length(groupEntries) > 0)
+
+    # Acknowledge the messages
+    ("ok", ackCount) = redisXack(conn, "test:stream2", "mygroup", [id1, id2])
+    check("XACK", ackCount == 2)
+
+    # Cleanup
+    redisDel(conn, "test:stream2")
+
+    println("Stream consumer group tests completed!")
+    0
+}

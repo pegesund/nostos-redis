@@ -1,0 +1,53 @@
+# Test sorted set operations
+type Conn = { handle: Any }
+
+redisConnect(url: String) -> Conn = Conn(__native__("Redis.connect", url))
+redisDel(conn: Conn, key: String) = { __native__("Redis.del", conn.handle, key); receive { msg -> msg } }
+redisZadd(conn: Conn, key: String, score: Float, member: String) = { __native__("Redis.zadd", conn.handle, key, score, member); receive { msg -> msg } }
+redisZscore(conn: Conn, key: String, member: String) = { __native__("Redis.zscore", conn.handle, key, member); receive { msg -> msg } }
+redisZrank(conn: Conn, key: String, member: String) = { __native__("Redis.zrank", conn.handle, key, member); receive { msg -> msg } }
+redisZrange(conn: Conn, key: String, start: Int, stop: Int) = { __native__("Redis.zrange", conn.handle, key, start, stop); receive { msg -> msg } }
+redisZrevrange(conn: Conn, key: String, start: Int, stop: Int) = { __native__("Redis.zrevrange", conn.handle, key, start, stop); receive { msg -> msg } }
+redisZincrby(conn: Conn, key: String, increment: Float, member: String) = { __native__("Redis.zincrby", conn.handle, key, increment, member); receive { msg -> msg } }
+redisZcard(conn: Conn, key: String) = { __native__("Redis.zcard", conn.handle, key); receive { msg -> msg } }
+redisZcount(conn: Conn, key: String, min: Float, max: Float) = { __native__("Redis.zcount", conn.handle, key, min, max); receive { msg -> msg } }
+
+isOk(result: (String, Any)) -> Bool = match result { ("ok", _) -> true, _ -> false }
+check(name: String, ok: Bool) = if ok then println("  PASS: " ++ name) else println("  FAIL: " ++ name)
+
+main() = {
+    println("=== Testing Sorted Set Operations ===")
+    conn = redisConnect("redis://127.0.0.1/")
+
+    redisDel(conn, "test:zset")
+
+    check("ZADD", isOk(redisZadd(conn, "test:zset", 1.0, "one")))
+    redisZadd(conn, "test:zset", 2.0, "two")
+    redisZadd(conn, "test:zset", 3.0, "three")
+
+    ("ok", zcard) = redisZcard(conn, "test:zset")
+    check("ZCARD", zcard == 3)
+
+    ("ok", zscore) = redisZscore(conn, "test:zset", "two")
+    check("ZSCORE", zscore == 2.0)
+
+    ("ok", zrank) = redisZrank(conn, "test:zset", "two")
+    check("ZRANK", zrank == 1)
+
+    ("ok", zrange) = redisZrange(conn, "test:zset", 0, -1)
+    check("ZRANGE count", length(zrange) == 3)
+    check("ZRANGE first", head(zrange) == "one")
+
+    ("ok", zrevrange) = redisZrevrange(conn, "test:zset", 0, 0)
+    check("ZREVRANGE", head(zrevrange) == "three")
+
+    ("ok", zcount) = redisZcount(conn, "test:zset", 1.0, 2.0)
+    check("ZCOUNT", zcount == 2)
+
+    ("ok", newscore) = redisZincrby(conn, "test:zset", 0.5, "one")
+    check("ZINCRBY", newscore == 1.5)
+
+    redisDel(conn, "test:zset")
+    println("Sorted set tests completed!")
+    0
+}

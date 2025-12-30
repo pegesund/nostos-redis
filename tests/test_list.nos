@@ -1,0 +1,40 @@
+# Test list operations
+type Conn = { handle: Any }
+
+redisConnect(url: String) -> Conn = Conn(__native__("Redis.connect", url))
+redisDel(conn: Conn, key: String) = { __native__("Redis.del", conn.handle, key); receive { msg -> msg } }
+redisLpush(conn: Conn, key: String, value: String) = { __native__("Redis.lpush", conn.handle, key, value); receive { msg -> msg } }
+redisRpush(conn: Conn, key: String, value: String) = { __native__("Redis.rpush", conn.handle, key, value); receive { msg -> msg } }
+redisLpop(conn: Conn, key: String) = { __native__("Redis.lpop", conn.handle, key); receive { msg -> msg } }
+redisRpop(conn: Conn, key: String) = { __native__("Redis.rpop", conn.handle, key); receive { msg -> msg } }
+redisLrange(conn: Conn, key: String, start: Int, stop: Int) = { __native__("Redis.lrange", conn.handle, key, start, stop); receive { msg -> msg } }
+redisLlen(conn: Conn, key: String) = { __native__("Redis.llen", conn.handle, key); receive { msg -> msg } }
+
+check(name: String, ok: Bool) = if ok then println("  PASS: " ++ name) else println("  FAIL: " ++ name)
+
+main() = {
+    println("=== Testing List Operations ===")
+    conn = redisConnect("redis://127.0.0.1/")
+
+    redisDel(conn, "test:list")
+
+    redisLpush(conn, "test:list", "first")
+    redisLpush(conn, "test:list", "second")
+    redisRpush(conn, "test:list", "third")
+
+    ("ok", llen) = redisLlen(conn, "test:list")
+    check("LLEN", llen == 3)
+
+    ("ok", lrange) = redisLrange(conn, "test:list", 0, -1)
+    check("LRANGE", length(lrange) == 3)
+
+    ("ok", lpop) = redisLpop(conn, "test:list")
+    check("LPOP", lpop == "second")
+
+    ("ok", rpop) = redisRpop(conn, "test:list")
+    check("RPOP", rpop == "third")
+
+    redisDel(conn, "test:list")
+    println("List tests completed!")
+    0
+}

@@ -1,20 +1,21 @@
 # Nostos Redis Extension
 #
-# Synchronous Redis client. All operations block until completion and return
-# result tuples directly: ("ok", value) or ("error", msg).
+# Async Redis client. Operations are non-blocking - they spawn an async task
+# that performs the Redis operation and sends the result to the caller's mailbox.
 #
 # Usage:
 #   import redis
 #   use redis.*
 #
-#   # Connect to Redis
+#   # Connect to Redis (synchronous - blocks briefly)
 #   conn = redisConnect("redis://127.0.0.1/")
 #
-#   # Set a key
-#   ("ok", _) = redisSet(conn, "mykey", "myvalue")
+#   # Operations return result via receive
+#   redisSet(conn, "mykey", "myvalue")
+#   ("ok", _) = receive { msg -> msg }
 #
-#   # Get a key
-#   ("ok", value) = redisGet(conn, "mykey")
+#   redisGet(conn, "mykey")
+#   ("ok", value) = receive { msg -> msg }
 #   println("Got: " ++ value)
 
 # =============================================================================
@@ -28,30 +29,67 @@ pub type Conn = { handle: Any }
 # Connection Management
 # =============================================================================
 
-# Connect to Redis
+# Connect to Redis (synchronous - blocks during initial connection)
 # Returns connection handle
 pub redisConnect(url: String) -> Conn = Conn(__native__("Redis.connect", url))
 
 # =============================================================================
-# Key-Value Operations
+# Key-Value Operations (Async - result sent via message)
+# =============================================================================
+
+# GET key - retrieve value
+# Sends: (ok, value) or (ok, None) if not found, or (error, msg)
+pub redisGetAsync(conn: Conn, key: String) = __native__("Redis.get", conn.handle, key)
+
+# SET key value
+# Sends: (ok, "OK") or (error, msg)
+pub redisSetAsync(conn: Conn, key: String, value: String) = __native__("Redis.set", conn.handle, key, value)
+
+# DEL key(s) - delete one or more keys
+# Sends: (ok, count) or (error, msg)
+pub redisDelAsync(conn: Conn, key: String) = __native__("Redis.del", conn.handle, key)
+pub redisDelManyAsync(conn: Conn, keys: List) = __native__("Redis.del", conn.handle, keys)
+
+# EXISTS key - check if key exists
+# Sends: (ok, Bool) or (error, msg)
+pub redisExistsAsync(conn: Conn, key: String) = __native__("Redis.exists", conn.handle, key)
+
+# =============================================================================
+# Blocking Wrappers (call + receive for convenience)
 # =============================================================================
 
 # GET key - retrieve value
 # Returns: (ok, value) or (ok, None) if not found, or (error, msg)
-pub redisGet(conn: Conn, key: String) = __native__("Redis.get", conn.handle, key)
+pub redisGet(conn: Conn, key: String) = {
+    __native__("Redis.get", conn.handle, key)
+    receive { msg -> msg }
+}
 
 # SET key value
 # Returns: (ok, "OK") or (error, msg)
-pub redisSet(conn: Conn, key: String, value: String) = __native__("Redis.set", conn.handle, key, value)
+pub redisSet(conn: Conn, key: String, value: String) = {
+    __native__("Redis.set", conn.handle, key, value)
+    receive { msg -> msg }
+}
 
 # DEL key(s) - delete one or more keys
 # Returns: (ok, count) or (error, msg)
-pub redisDel(conn: Conn, key: String) = __native__("Redis.del", conn.handle, key)
-pub redisDelMany(conn: Conn, keys: List) = __native__("Redis.del", conn.handle, keys)
+pub redisDel(conn: Conn, key: String) = {
+    __native__("Redis.del", conn.handle, key)
+    receive { msg -> msg }
+}
+
+pub redisDelMany(conn: Conn, keys: List) = {
+    __native__("Redis.del", conn.handle, keys)
+    receive { msg -> msg }
+}
 
 # EXISTS key - check if key exists
 # Returns: (ok, Bool) or (error, msg)
-pub redisExists(conn: Conn, key: String) = __native__("Redis.exists", conn.handle, key)
+pub redisExists(conn: Conn, key: String) = {
+    __native__("Redis.exists", conn.handle, key)
+    receive { msg -> msg }
+}
 
 # =============================================================================
 # Key Operations
@@ -59,15 +97,70 @@ pub redisExists(conn: Conn, key: String) = __native__("Redis.exists", conn.handl
 
 # KEYS pattern - find keys matching pattern (use with caution in production!)
 # Returns: (ok, List[String]) or (error, msg)
-pub redisKeys(conn: Conn, pattern: String) = __native__("Redis.keys", conn.handle, pattern)
+pub redisKeys(conn: Conn, pattern: String) = {
+    __native__("Redis.keys", conn.handle, pattern)
+    receive { msg -> msg }
+}
 
 # EXPIRE key seconds - set TTL
 # Returns: (ok, Bool) or (error, msg)
-pub redisExpire(conn: Conn, key: String, seconds: Int) = __native__("Redis.expire", conn.handle, key, seconds)
+pub redisExpire(conn: Conn, key: String, seconds: Int) = {
+    __native__("Redis.expire", conn.handle, key, seconds)
+    receive { msg -> msg }
+}
 
 # TTL key - get remaining TTL (-1 if no expiry, -2 if not exists)
 # Returns: (ok, Int) or (error, msg)
-pub redisTtl(conn: Conn, key: String) = __native__("Redis.ttl", conn.handle, key)
+pub redisTtl(conn: Conn, key: String) = {
+    __native__("Redis.ttl", conn.handle, key)
+    receive { msg -> msg }
+}
+
+# RENAME key newkey - rename a key
+# Returns: (ok, "OK") or (error, msg)
+pub redisRename(conn: Conn, key: String, newkey: String) = {
+    __native__("Redis.rename", conn.handle, key, newkey)
+    receive { msg -> msg }
+}
+
+# TYPE key - get type of key (string, list, set, zset, hash, stream)
+# Returns: (ok, String) or (error, msg)
+pub redisType(conn: Conn, key: String) = {
+    __native__("Redis.type", conn.handle, key)
+    receive { msg -> msg }
+}
+
+# =============================================================================
+# Counter Operations
+# =============================================================================
+
+# INCR key - increment by 1
+# Returns: (ok, new_value) or (error, msg)
+pub redisIncr(conn: Conn, key: String) = {
+    __native__("Redis.incr", conn.handle, key)
+    receive { msg -> msg }
+}
+
+# INCRBY key amount - increment by amount
+# Returns: (ok, new_value) or (error, msg)
+pub redisIncrby(conn: Conn, key: String, amount: Int) = {
+    __native__("Redis.incrby", conn.handle, key, amount)
+    receive { msg -> msg }
+}
+
+# DECR key - decrement by 1
+# Returns: (ok, new_value) or (error, msg)
+pub redisDecr(conn: Conn, key: String) = {
+    __native__("Redis.decr", conn.handle, key)
+    receive { msg -> msg }
+}
+
+# DECRBY key amount - decrement by amount
+# Returns: (ok, new_value) or (error, msg)
+pub redisDecrby(conn: Conn, key: String, amount: Int) = {
+    __native__("Redis.decrby", conn.handle, key, amount)
+    receive { msg -> msg }
+}
 
 # =============================================================================
 # List Operations
@@ -75,47 +168,128 @@ pub redisTtl(conn: Conn, key: String) = __native__("Redis.ttl", conn.handle, key
 
 # LPUSH key value - push to head
 # Returns: (ok, length) or (error, msg)
-pub redisLpush(conn: Conn, key: String, value: String) = __native__("Redis.lpush", conn.handle, key, value)
+pub redisLpush(conn: Conn, key: String, value: String) = {
+    __native__("Redis.lpush", conn.handle, key, value)
+    receive { msg -> msg }
+}
 
 # RPUSH key value - push to tail
 # Returns: (ok, length) or (error, msg)
-pub redisRpush(conn: Conn, key: String, value: String) = __native__("Redis.rpush", conn.handle, key, value)
+pub redisRpush(conn: Conn, key: String, value: String) = {
+    __native__("Redis.rpush", conn.handle, key, value)
+    receive { msg -> msg }
+}
 
 # LPOP key - pop from head
 # Returns: (ok, value) or (error, msg)
-pub redisLpop(conn: Conn, key: String) = __native__("Redis.lpop", conn.handle, key)
+pub redisLpop(conn: Conn, key: String) = {
+    __native__("Redis.lpop", conn.handle, key)
+    receive { msg -> msg }
+}
 
 # RPOP key - pop from tail
 # Returns: (ok, value) or (error, msg)
-pub redisRpop(conn: Conn, key: String) = __native__("Redis.rpop", conn.handle, key)
+pub redisRpop(conn: Conn, key: String) = {
+    __native__("Redis.rpop", conn.handle, key)
+    receive { msg -> msg }
+}
 
 # LRANGE key start stop - get range (0-indexed, -1 means last)
 # Returns: (ok, List[String]) or (error, msg)
-pub redisLrange(conn: Conn, key: String, start: Int, stop: Int) = __native__("Redis.lrange", conn.handle, key, start, stop)
+pub redisLrange(conn: Conn, key: String, start: Int, stop: Int) = {
+    __native__("Redis.lrange", conn.handle, key, start, stop)
+    receive { msg -> msg }
+}
 
 # LLEN key - get list length
 # Returns: (ok, length) or (error, msg)
-pub redisLlen(conn: Conn, key: String) = __native__("Redis.llen", conn.handle, key)
+pub redisLlen(conn: Conn, key: String) = {
+    __native__("Redis.llen", conn.handle, key)
+    receive { msg -> msg }
+}
 
 # =============================================================================
 # Hash Operations
 # =============================================================================
 
 # HSET key field value
-# Returns: (ok, "OK") or (error, msg)
-pub redisHset(conn: Conn, key: String, field: String, value: String) = __native__("Redis.hset", conn.handle, key, field, value)
+# Returns: (ok, Int) - 1 if new field, 0 if updated, or (error, msg)
+pub redisHset(conn: Conn, key: String, field: String, value: String) = {
+    __native__("Redis.hset", conn.handle, key, field, value)
+    receive { msg -> msg }
+}
 
 # HGET key field
 # Returns: (ok, value) or (error, msg)
-pub redisHget(conn: Conn, key: String, field: String) = __native__("Redis.hget", conn.handle, key, field)
+pub redisHget(conn: Conn, key: String, field: String) = {
+    __native__("Redis.hget", conn.handle, key, field)
+    receive { msg -> msg }
+}
 
 # HDEL key field
 # Returns: (ok, count) or (error, msg)
-pub redisHdel(conn: Conn, key: String, field: String) = __native__("Redis.hdel", conn.handle, key, field)
+pub redisHdel(conn: Conn, key: String, field: String) = {
+    __native__("Redis.hdel", conn.handle, key, field)
+    receive { msg -> msg }
+}
 
 # HGETALL key - returns list of (field, value) tuples
 # Returns: (ok, List[(String, String)]) or (error, msg)
-pub redisHgetall(conn: Conn, key: String) = __native__("Redis.hgetall", conn.handle, key)
+pub redisHgetall(conn: Conn, key: String) = {
+    __native__("Redis.hgetall", conn.handle, key)
+    receive { msg -> msg }
+}
+
+# HMSET key fields - set multiple fields at once
+# fields: List of (field, value) tuples
+# Returns: (ok, "OK") or (error, msg)
+pub redisHmset(conn: Conn, key: String, fields: List) = {
+    __native__("Redis.hmset", conn.handle, key, fields)
+    receive { msg -> msg }
+}
+
+# HMGET key fields - get multiple fields
+# fields: List of field names
+# Returns: (ok, List[String]) or (error, msg)
+pub redisHmget(conn: Conn, key: String, fields: List) = {
+    __native__("Redis.hmget", conn.handle, key, fields)
+    receive { msg -> msg }
+}
+
+# HINCRBY key field amount - increment hash field by amount
+# Returns: (ok, new_value) or (error, msg)
+pub redisHincrby(conn: Conn, key: String, field: String, amount: Int) = {
+    __native__("Redis.hincrby", conn.handle, key, field, amount)
+    receive { msg -> msg }
+}
+
+# HKEYS key - get all field names
+# Returns: (ok, List[String]) or (error, msg)
+pub redisHkeys(conn: Conn, key: String) = {
+    __native__("Redis.hkeys", conn.handle, key)
+    receive { msg -> msg }
+}
+
+# HVALS key - get all values
+# Returns: (ok, List[String]) or (error, msg)
+pub redisHvals(conn: Conn, key: String) = {
+    __native__("Redis.hvals", conn.handle, key)
+    receive { msg -> msg }
+}
+
+# HLEN key - get number of fields
+# Returns: (ok, Int) or (error, msg)
+pub redisHlen(conn: Conn, key: String) = {
+    __native__("Redis.hlen", conn.handle, key)
+    receive { msg -> msg }
+}
+
+# HEXISTS key field - check if field exists
+# Returns: (ok, Bool) or (error, msg)
+pub redisHexists(conn: Conn, key: String, field: String) = {
+    __native__("Redis.hexists", conn.handle, key, field)
+    receive { msg -> msg }
+}
 
 # =============================================================================
 # Set Operations
@@ -123,19 +297,225 @@ pub redisHgetall(conn: Conn, key: String) = __native__("Redis.hgetall", conn.han
 
 # SADD key member - add to set
 # Returns: (ok, 1) if added, (ok, 0) if already exists, or (error, msg)
-pub redisSadd(conn: Conn, key: String, member: String) = __native__("Redis.sadd", conn.handle, key, member)
+pub redisSadd(conn: Conn, key: String, member: String) = {
+    __native__("Redis.sadd", conn.handle, key, member)
+    receive { msg -> msg }
+}
 
 # SREM key member - remove from set
 # Returns: (ok, count) or (error, msg)
-pub redisSrem(conn: Conn, key: String, member: String) = __native__("Redis.srem", conn.handle, key, member)
+pub redisSrem(conn: Conn, key: String, member: String) = {
+    __native__("Redis.srem", conn.handle, key, member)
+    receive { msg -> msg }
+}
 
 # SMEMBERS key - get all members
 # Returns: (ok, List[String]) or (error, msg)
-pub redisSmembers(conn: Conn, key: String) = __native__("Redis.smembers", conn.handle, key)
+pub redisSmembers(conn: Conn, key: String) = {
+    __native__("Redis.smembers", conn.handle, key)
+    receive { msg -> msg }
+}
 
 # SISMEMBER key member - check membership
 # Returns: (ok, Bool) or (error, msg)
-pub redisSismember(conn: Conn, key: String, member: String) = __native__("Redis.sismember", conn.handle, key, member)
+pub redisSismember(conn: Conn, key: String, member: String) = {
+    __native__("Redis.sismember", conn.handle, key, member)
+    receive { msg -> msg }
+}
+
+# SCARD key - get set size
+# Returns: (ok, Int) or (error, msg)
+pub redisScard(conn: Conn, key: String) = {
+    __native__("Redis.scard", conn.handle, key)
+    receive { msg -> msg }
+}
+
+# SUNION keys - union of multiple sets
+# keys: List of key names
+# Returns: (ok, List[String]) or (error, msg)
+pub redisSunion(conn: Conn, keys: List) = {
+    __native__("Redis.sunion", conn.handle, keys)
+    receive { msg -> msg }
+}
+
+# SINTER keys - intersection of multiple sets
+# keys: List of key names
+# Returns: (ok, List[String]) or (error, msg)
+pub redisSinter(conn: Conn, keys: List) = {
+    __native__("Redis.sinter", conn.handle, keys)
+    receive { msg -> msg }
+}
+
+# SDIFF keys - difference of sets (first minus rest)
+# keys: List of key names
+# Returns: (ok, List[String]) or (error, msg)
+pub redisSdiff(conn: Conn, keys: List) = {
+    __native__("Redis.sdiff", conn.handle, keys)
+    receive { msg -> msg }
+}
+
+# =============================================================================
+# Sorted Set Operations
+# =============================================================================
+
+# ZADD key score member - add member with score
+# Returns: (ok, Int) - number of elements added, or (error, msg)
+pub redisZadd(conn: Conn, key: String, score: Float, member: String) = {
+    __native__("Redis.zadd", conn.handle, key, score, member)
+    receive { msg -> msg }
+}
+
+# ZSCORE key member - get score of member
+# Returns: (ok, Float) or (error, msg)
+pub redisZscore(conn: Conn, key: String, member: String) = {
+    __native__("Redis.zscore", conn.handle, key, member)
+    receive { msg -> msg }
+}
+
+# ZRANK key member - get rank (0-indexed, lowest score first)
+# Returns: (ok, Int) or (error, msg)
+pub redisZrank(conn: Conn, key: String, member: String) = {
+    __native__("Redis.zrank", conn.handle, key, member)
+    receive { msg -> msg }
+}
+
+# ZRANGE key start stop - get members by rank (low to high)
+# Returns: (ok, List[String]) or (error, msg)
+pub redisZrange(conn: Conn, key: String, start: Int, stop: Int) = {
+    __native__("Redis.zrange", conn.handle, key, start, stop)
+    receive { msg -> msg }
+}
+
+# ZREVRANGE key start stop - get members by rank (high to low)
+# Returns: (ok, List[String]) or (error, msg)
+pub redisZrevrange(conn: Conn, key: String, start: Int, stop: Int) = {
+    __native__("Redis.zrevrange", conn.handle, key, start, stop)
+    receive { msg -> msg }
+}
+
+# ZINCRBY key increment member - increment score
+# Returns: (ok, new_score) or (error, msg)
+pub redisZincrby(conn: Conn, key: String, increment: Float, member: String) = {
+    __native__("Redis.zincrby", conn.handle, key, increment, member)
+    receive { msg -> msg }
+}
+
+# ZCARD key - get number of members
+# Returns: (ok, Int) or (error, msg)
+pub redisZcard(conn: Conn, key: String) = {
+    __native__("Redis.zcard", conn.handle, key)
+    receive { msg -> msg }
+}
+
+# ZCOUNT key min max - count members with score in range
+# Returns: (ok, Int) or (error, msg)
+pub redisZcount(conn: Conn, key: String, min: Float, max: Float) = {
+    __native__("Redis.zcount", conn.handle, key, min, max)
+    receive { msg -> msg }
+}
+
+# =============================================================================
+# Stream Operations
+# =============================================================================
+
+# XADD stream fields - add entry to stream (auto-generated ID)
+# fields: List of (field, value) tuples
+# Returns: (ok, entry_id) or (error, msg)
+pub redisXadd(conn: Conn, stream: String, fields: List) = {
+    __native__("Redis.xadd", conn.handle, stream, fields)
+    receive { msg -> msg }
+}
+
+# XLEN stream - get number of entries
+# Returns: (ok, Int) or (error, msg)
+pub redisXlen(conn: Conn, stream: String) = {
+    __native__("Redis.xlen", conn.handle, stream)
+    receive { msg -> msg }
+}
+
+# XRANGE stream start end - get entries by ID range (- for min, + for max)
+# Returns: (ok, List[...]) or (error, msg)
+pub redisXrange(conn: Conn, stream: String, startId: String, endId: String) = {
+    __native__("Redis.xrange", conn.handle, stream, startId, endId)
+    receive { msg -> msg }
+}
+
+# XREAD - read entries from streams
+# streams: List of (stream_name, last_id) tuples - use "0" for all, "$" for new only
+# count: optional max entries per stream
+# blockMs: optional blocking timeout in milliseconds (0 = block forever)
+# Returns: (ok, List[(stream, entries)]) or (error, msg)
+pub redisXread(conn: Conn, streams: List) = {
+    __native__("Redis.xread", conn.handle, streams)
+    receive { msg -> msg }
+}
+
+pub redisXreadCount(conn: Conn, streams: List, count: Int) = {
+    __native__("Redis.xread", conn.handle, streams, count)
+    receive { msg -> msg }
+}
+
+pub redisXreadBlock(conn: Conn, streams: List, count: Int, blockMs: Int) = {
+    __native__("Redis.xread", conn.handle, streams, count, blockMs)
+    receive { msg -> msg }
+}
+
+# =============================================================================
+# Stream Consumer Groups
+# =============================================================================
+
+# XGROUP CREATE - create a consumer group
+# stream: the stream name
+# group: the group name
+# startId: where to start reading ("0" for beginning, "$" for new entries only)
+# mkstream: if true, create the stream if it doesn't exist
+# Returns: (ok, "OK") or (error, msg)
+pub redisXgroupCreate(conn: Conn, stream: String, group: String, startId: String) = {
+    __native__("Redis.xgroup_create", conn.handle, stream, group, startId)
+    receive { msg -> msg }
+}
+
+pub redisXgroupCreateMkstream(conn: Conn, stream: String, group: String, startId: String) = {
+    __native__("Redis.xgroup_create", conn.handle, stream, group, startId, true)
+    receive { msg -> msg }
+}
+
+# XREADGROUP - read entries as a consumer in a group
+# group: consumer group name
+# consumer: consumer name (identifies this reader)
+# streams: List of (stream_name, id) tuples - use ">" for new messages
+# Returns: (ok, List[(stream, entries)]) or (error, msg)
+pub redisXreadgroup(conn: Conn, group: String, consumer: String, streams: List) = {
+    __native__("Redis.xreadgroup", conn.handle, group, consumer, streams)
+    receive { msg -> msg }
+}
+
+pub redisXreadgroupCount(conn: Conn, group: String, consumer: String, streams: List, count: Int) = {
+    __native__("Redis.xreadgroup", conn.handle, group, consumer, streams, count)
+    receive { msg -> msg }
+}
+
+pub redisXreadgroupBlock(conn: Conn, group: String, consumer: String, streams: List, count: Int, blockMs: Int) = {
+    __native__("Redis.xreadgroup", conn.handle, group, consumer, streams, count, blockMs)
+    receive { msg -> msg }
+}
+
+# XACK - acknowledge message processing
+# stream: the stream name
+# group: the consumer group name
+# ids: List of message IDs to acknowledge
+# Returns: (ok, count) - number of messages acknowledged
+pub redisXack(conn: Conn, stream: String, group: String, ids: List) = {
+    __native__("Redis.xack", conn.handle, stream, group, ids)
+    receive { msg -> msg }
+}
+
+# XINFO GROUPS - get info about consumer groups on a stream
+# Returns: (ok, List[group_info]) or (error, msg)
+pub redisXinfoGroups(conn: Conn, stream: String) = {
+    __native__("Redis.xinfo_groups", conn.handle, stream)
+    receive { msg -> msg }
+}
 
 # =============================================================================
 # Pub/Sub
@@ -143,7 +523,28 @@ pub redisSismember(conn: Conn, key: String, member: String) = __native__("Redis.
 
 # PUBLISH channel message
 # Returns: (ok, receiver_count) or (error, msg)
-pub redisPublish(conn: Conn, channel: String, message: String) = __native__("Redis.publish", conn.handle, channel, message)
+pub redisPublish(conn: Conn, channel: String, message: String) = {
+    __native__("Redis.publish", conn.handle, channel, message)
+    receive { msg -> msg }
+}
+
+# SUBSCRIBE - subscribe to a channel
+# This spawns a background listener that sends messages to caller's mailbox
+# Messages arrive as: ("message", channel, payload) or ("pmessage", pattern, channel, payload)
+# Returns: (ok, "subscribed") on success, or (error, msg) on failure
+# The returned subscription handle can be used to unsubscribe
+pub redisSubscribe(url: String, channel: String) = {
+    __native__("Redis.subscribe", url, channel)
+    receive { msg -> msg }
+}
+
+# PSUBSCRIBE - subscribe to channels matching a pattern
+# Pattern uses * as wildcard (e.g., "news.*" matches "news.sports", "news.tech")
+# Returns: (ok, "subscribed") on success
+pub redisPsubscribe(url: String, pattern: String) = {
+    __native__("Redis.psubscribe", url, pattern)
+    receive { msg -> msg }
+}
 
 # =============================================================================
 # Utility
@@ -151,11 +552,17 @@ pub redisPublish(conn: Conn, channel: String, message: String) = __native__("Red
 
 # PING - test connection
 # Returns: (ok, "PONG") or (error, msg)
-pub redisPing(conn: Conn) = __native__("Redis.ping", conn.handle)
+pub redisPing(conn: Conn) = {
+    __native__("Redis.ping", conn.handle)
+    receive { msg -> msg }
+}
 
 # FLUSHDB - clear current database (DANGER!)
 # Returns: (ok, "OK") or (error, msg)
-pub redisFlushdb(conn: Conn) = __native__("Redis.flushdb", conn.handle)
+pub redisFlushdb(conn: Conn) = {
+    __native__("Redis.flushdb", conn.handle)
+    receive { msg -> msg }
+}
 
 # =============================================================================
 # Helper Functions
@@ -163,18 +570,18 @@ pub redisFlushdb(conn: Conn) = __native__("Redis.flushdb", conn.handle)
 
 # Unwrap a Redis result, panicking on error
 pub unwrapRedis(result: (String, Any)) -> Any = match result {
-    ("ok", value) -> value
+    ("ok", value) -> value,
     ("error", msg) -> throw("Redis error: " ++ show(msg))
 }
 
 # Check if Redis result is ok
 pub isRedisOk(result: (String, Any)) -> Bool = match result {
-    ("ok", _) -> true
+    ("ok", _) -> true,
     _ -> false
 }
 
 # Get error message from Redis result, or None if ok
 pub redisError(result: (String, Any)) -> Option = match result {
-    ("error", msg) -> Some(msg)
+    ("error", msg) -> Some(msg),
     _ -> None
 }

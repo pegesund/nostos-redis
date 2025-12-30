@@ -1,0 +1,67 @@
+# Test Stream Consumer Group variants
+type Conn = { handle: Any }
+
+redisConnect(url: String) -> Conn = Conn(__native__("Redis.connect", url))
+redisDel(conn: Conn, key: String) = { __native__("Redis.del", conn.handle, key); receive { msg -> msg } }
+redisXadd(conn: Conn, stream: String, fields: List) = { __native__("Redis.xadd", conn.handle, stream, fields); receive { msg -> msg } }
+redisXgroupCreate(conn: Conn, stream: String, group: String, startId: String) = { __native__("Redis.xgroup_create", conn.handle, stream, group, startId); receive { msg -> msg } }
+redisXgroupCreateMkstream(conn: Conn, stream: String, group: String, startId: String) = { __native__("Redis.xgroup_create", conn.handle, stream, group, startId, true); receive { msg -> msg } }
+redisXreadgroup(conn: Conn, group: String, consumer: String, streams: List) = { __native__("Redis.xreadgroup", conn.handle, group, consumer, streams); receive { msg -> msg } }
+redisXreadgroupCount(conn: Conn, group: String, consumer: String, streams: List, count: Int) = { __native__("Redis.xreadgroup", conn.handle, group, consumer, streams, count); receive { msg -> msg } }
+redisXreadgroupBlock(conn: Conn, group: String, consumer: String, streams: List, count: Int, blockMs: Int) = { __native__("Redis.xreadgroup", conn.handle, group, consumer, streams, count, blockMs); receive { msg -> msg } }
+redisXack(conn: Conn, stream: String, group: String, ids: List) = { __native__("Redis.xack", conn.handle, stream, group, ids); receive { msg -> msg } }
+
+isOk(result: (String, Any)) -> Bool = match result { ("ok", _) -> true, _ -> false }
+check(name: String, ok: Bool) = if ok then println("  PASS: " ++ name) else println("  FAIL: " ++ name)
+
+main() = {
+    println("=== Testing XREADGROUP Variants ===")
+    conn = redisConnect("redis://127.0.0.1/")
+
+    redisDel(conn, "test:grp")
+    redisDel(conn, "test:mkstream2")
+
+    # Test MKSTREAM - creates stream if doesn't exist
+    check("XGROUP CREATE MKSTREAM", isOk(redisXgroupCreateMkstream(conn, "test:mkstream2", "grp1", "$")))
+
+    # Add entries to mkstream
+    redisXadd(conn, "test:mkstream2", [("a", "1")])
+    redisXadd(conn, "test:mkstream2", [("a", "2")])
+
+    # Read from mkstream group
+    ("ok", mk1) = redisXreadgroup(conn, "grp1", "c1", [("test:mkstream2", ">")])
+    check("XREADGROUP from mkstream", length(mk1) > 0)
+
+    # Setup main test stream
+    ("ok", id1) = redisXadd(conn, "test:grp", [("x", "1")])
+    ("ok", id2) = redisXadd(conn, "test:grp", [("x", "2")])
+    ("ok", id3) = redisXadd(conn, "test:grp", [("x", "3")])
+    ("ok", id4) = redisXadd(conn, "test:grp", [("x", "4")])
+    ("ok", id5) = redisXadd(conn, "test:grp", [("x", "5")])
+
+    redisXgroupCreate(conn, "test:grp", "mygrp", "0")
+
+    # Basic XREADGROUP
+    ("ok", r1) = redisXreadgroup(conn, "mygrp", "worker", [("test:grp", ">")])
+    check("XREADGROUP basic", length(r1) > 0)
+
+    # Add more for COUNT test
+    redisXadd(conn, "test:grp", [("x", "6")])
+    redisXadd(conn, "test:grp", [("x", "7")])
+
+    ("ok", r2) = redisXreadgroupCount(conn, "mygrp", "worker", [("test:grp", ">")], 1)
+    check("XREADGROUP COUNT", isOk(("ok", r2)))
+
+    # BLOCK test (short timeout)
+    ("ok", r3) = redisXreadgroupBlock(conn, "mygrp", "worker", [("test:grp", ">")], 5, 100)
+    check("XREADGROUP BLOCK", isOk(("ok", r3)))
+
+    # ACK
+    ("ok", acked) = redisXack(conn, "test:grp", "mygrp", [id1, id2])
+    check("XACK", acked >= 0)
+
+    redisDel(conn, "test:grp")
+    redisDel(conn, "test:mkstream2")
+    println("XREADGROUP tests completed!")
+    0
+}

@@ -1,0 +1,38 @@
+# Test additional set operations
+type Conn = { handle: Any }
+
+redisConnect(url: String) -> Conn = Conn(__native__("Redis.connect", url))
+redisDel(conn: Conn, key: String) = { __native__("Redis.del", conn.handle, key); receive { msg -> msg } }
+redisSadd(conn: Conn, key: String, member: String) = { __native__("Redis.sadd", conn.handle, key, member); receive { msg -> msg } }
+redisSrem(conn: Conn, key: String, member: String) = { __native__("Redis.srem", conn.handle, key, member); receive { msg -> msg } }
+redisSismember(conn: Conn, key: String, member: String) = { __native__("Redis.sismember", conn.handle, key, member); receive { msg -> msg } }
+redisScard(conn: Conn, key: String) = { __native__("Redis.scard", conn.handle, key); receive { msg -> msg } }
+
+isOk(result: (String, Any)) -> Bool = match result { ("ok", _) -> true, _ -> false }
+check(name: String, ok: Bool) = if ok then println("  PASS: " ++ name) else println("  FAIL: " ++ name)
+
+main() = {
+    println("=== Testing Additional Set Operations ===")
+    conn = redisConnect("redis://127.0.0.1/")
+
+    redisDel(conn, "test:set3")
+
+    redisSadd(conn, "test:set3", "a")
+    redisSadd(conn, "test:set3", "b")
+    redisSadd(conn, "test:set3", "c")
+
+    ("ok", card1) = redisScard(conn, "test:set3")
+    check("Initial SCARD", card1 == 3)
+
+    check("SREM", isOk(redisSrem(conn, "test:set3", "b")))
+
+    ("ok", card2) = redisScard(conn, "test:set3")
+    check("SCARD after remove", card2 == 2)
+
+    ("ok", isMember) = redisSismember(conn, "test:set3", "b")
+    check("Member removed", isMember == false)
+
+    redisDel(conn, "test:set3")
+    println("Additional set tests completed!")
+    0
+}

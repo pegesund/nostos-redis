@@ -1,0 +1,32 @@
+# Test basic Redis operations
+type Conn = { handle: Any }
+
+redisConnect(url: String) -> Conn = Conn(__native__("Redis.connect", url))
+redisGet(conn: Conn, key: String) = { __native__("Redis.get", conn.handle, key); receive { msg -> msg } }
+redisSet(conn: Conn, key: String, value: String) = { __native__("Redis.set", conn.handle, key, value); receive { msg -> msg } }
+redisDel(conn: Conn, key: String) = { __native__("Redis.del", conn.handle, key); receive { msg -> msg } }
+redisExists(conn: Conn, key: String) = { __native__("Redis.exists", conn.handle, key); receive { msg -> msg } }
+redisPing(conn: Conn) = { __native__("Redis.ping", conn.handle); receive { msg -> msg } }
+
+isOk(result: (String, Any)) -> Bool = match result { ("ok", _) -> true, _ -> false }
+check(name: String, ok: Bool) = if ok then println("  PASS: " ++ name) else println("  FAIL: " ++ name)
+
+main() = {
+    println("=== Testing Basic Operations ===")
+    conn = redisConnect("redis://127.0.0.1/")
+
+    check("PING", isOk(redisPing(conn)))
+
+    redisDel(conn, "test:key")
+    check("SET", isOk(redisSet(conn, "test:key", "hello")))
+
+    ("ok", val) = redisGet(conn, "test:key")
+    check("GET", val == "hello")
+
+    ("ok", exists) = redisExists(conn, "test:key")
+    check("EXISTS", exists == true)
+    redisDel(conn, "test:key")
+
+    println("Basic tests completed!")
+    0
+}

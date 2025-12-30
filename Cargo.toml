@@ -11,5 +11,6 @@ crate-type = ["cdylib"]
 
 [dependencies]
 nostos-extension = { git = "https://github.com/pegesund/nostos", branch = "master" }
-redis = { version = "0.27", features = ["tokio-comp", "connection-manager"] }
-tokio = { version = "1", features = ["rt", "sync"] }
+redis = { version = "0.27", features = ["tokio-comp", "connection-manager", "streams"] }
+tokio = { version = "1", features = ["rt", "sync", "time"] }
+futures = "0.3"

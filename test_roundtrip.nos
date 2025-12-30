@@ -1,0 +1,81 @@
+# Test Redis queue round-trip - verify values come back correctly
+
+type Conn = { handle: Any }
+
+redisConnect(url: String) -> Conn = Conn(__native__("Redis.connect", url))
+
+redisLpush(conn: Conn, key: String, value: String) = {
+    __native__("Redis.lpush", conn.handle, key, value)
+    receive { msg -> msg }
+}
+
+redisRpop(conn: Conn, key: String) = {
+    __native__("Redis.rpop", conn.handle, key)
+    receive { msg -> msg }
+}
+
+redisDel(conn: Conn, key: String) = {
+    __native__("Redis.del", conn.handle, key)
+    receive { msg -> msg }
+}
+
+main() = {
+    conn = redisConnect("redis://127.0.0.1/")
+
+    # Clean up first
+    redisDel(conn, "test:queue")
+
+    # Test 1: Simple string round-trip
+    println("Test 1: Simple string")
+    original1 = "hello world"
+    redisLpush(conn, "test:queue", original1)
+    ("ok", result1) = redisRpop(conn, "test:queue")
+    println("  Original: " ++ original1)
+    println("  Result:   " ++ result1)
+    if original1 == result1 then println("  PASS") else println("  FAIL")
+
+    # Test 2: String with special characters
+    println("Test 2: Special characters")
+    original2 = "hello\nworld\twith\rspecial chars!@#$%^&*()"
+    redisLpush(conn, "test:queue", original2)
+    ("ok", result2) = redisRpop(conn, "test:queue")
+    println("  Original: " ++ show(original2))
+    println("  Result:   " ++ show(result2))
+    if original2 == result2 then println("  PASS") else println("  FAIL")
+
+    # Test 3: Empty string
+    println("Test 3: Empty string")
+    original3 = ""
+    redisLpush(conn, "test:queue", original3)
+    ("ok", result3) = redisRpop(conn, "test:queue")
+    println("  Original: \"" ++ original3 ++ "\"")
+    println("  Result:   \"" ++ result3 ++ "\"")
+    if original3 == result3 then println("  PASS") else println("  FAIL")
+
+    # Test 4: Unicode string
+    println("Test 4: Unicode")
+    original4 = "Hello 世界 🌍 Привет"
+    redisLpush(conn, "test:queue", original4)
+    ("ok", result4) = redisRpop(conn, "test:queue")
+    println("  Original: " ++ original4)
+    println("  Result:   " ++ result4)
+    if original4 == result4 then println("  PASS") else println("  FAIL")
+
+    # Test 5: Multiple values in queue (FIFO order with LPUSH/RPOP)
+    println("Test 5: Multiple values (FIFO)")
+    redisLpush(conn, "test:queue", "first")
+    redisLpush(conn, "test:queue", "second")
+    redisLpush(conn, "test:queue", "third")
+    ("ok", r1) = redisRpop(conn, "test:queue")
+    ("ok", r2) = redisRpop(conn, "test:queue")
+    ("ok", r3) = redisRpop(conn, "test:queue")
+    println("  Expected: first, second, third")
+    println("  Got:      " ++ r1 ++ ", " ++ r2 ++ ", " ++ r3)
+    if r1 == "first" && r2 == "second" && r3 == "third" then println("  PASS") else println("  FAIL")
+
+    # Cleanup
+    redisDel(conn, "test:queue")
+
+    println("All round-trip tests complete!")
+    0
+}

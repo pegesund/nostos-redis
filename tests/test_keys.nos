@@ -1,0 +1,39 @@
+# Test key operations
+type Conn = { handle: Any }
+
+redisConnect(url: String) -> Conn = Conn(__native__("Redis.connect", url))
+redisSet(conn: Conn, key: String, value: String) = { __native__("Redis.set", conn.handle, key, value); receive { msg -> msg } }
+redisDel(conn: Conn, key: String) = { __native__("Redis.del", conn.handle, key); receive { msg -> msg } }
+redisExists(conn: Conn, key: String) = { __native__("Redis.exists", conn.handle, key); receive { msg -> msg } }
+redisRename(conn: Conn, key: String, newkey: String) = { __native__("Redis.rename", conn.handle, key, newkey); receive { msg -> msg } }
+redisType(conn: Conn, key: String) = { __native__("Redis.type", conn.handle, key); receive { msg -> msg } }
+redisExpire(conn: Conn, key: String, seconds: Int) = { __native__("Redis.expire", conn.handle, key, seconds); receive { msg -> msg } }
+redisTtl(conn: Conn, key: String) = { __native__("Redis.ttl", conn.handle, key); receive { msg -> msg } }
+
+isOk(result: (String, Any)) -> Bool = match result { ("ok", _) -> true, _ -> false }
+check(name: String, ok: Bool) = if ok then println("  PASS: " ++ name) else println("  FAIL: " ++ name)
+
+main() = {
+    println("=== Testing Key Operations ===")
+    conn = redisConnect("redis://127.0.0.1/")
+
+    redisSet(conn, "test:rename", "value")
+    check("RENAME", isOk(redisRename(conn, "test:rename", "test:renamed")))
+    ("ok", ex2) = redisExists(conn, "test:renamed")
+    check("Key was renamed", ex2 == true)
+    redisDel(conn, "test:renamed")
+
+    redisSet(conn, "test:type", "string_value")
+    ("ok", keyType) = redisType(conn, "test:type")
+    check("TYPE", keyType == "string")
+    redisDel(conn, "test:type")
+
+    redisSet(conn, "test:ttl", "value")
+    check("EXPIRE", isOk(redisExpire(conn, "test:ttl", 100)))
+    ("ok", ttl) = redisTtl(conn, "test:ttl")
+    check("TTL", ttl > 0)
+    redisDel(conn, "test:ttl")
+
+    println("Key tests completed!")
+    0
+}

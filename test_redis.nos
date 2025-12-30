@@ -1,18 +1,50 @@
-# Test Redis extension
-# Note: All operations are synchronous and return result tuples directly
+# Test Redis extension (async version)
+# Note: Operations are async and return results via message passing.
+# Call the operation, then receive the result.
 
 # Connection type
 type Conn = { handle: Any }
 
-# Native function wrappers - operations return ("ok", value) or ("error", msg) tuples
+# Native function wrappers
+# - redisConnect is synchronous (returns connection directly)
+# - All other operations are async (return Unit, send result via message)
 redisConnect(url: String) -> Conn = Conn(__native__("Redis.connect", url))
-redisPing(conn: Conn) = __native__("Redis.ping", conn.handle)
-redisSet(conn: Conn, key: String, value: String) = __native__("Redis.set", conn.handle, key, value)
-redisGet(conn: Conn, key: String) = __native__("Redis.get", conn.handle, key)
-redisExists(conn: Conn, key: String) = __native__("Redis.exists", conn.handle, key)
-redisLpush(conn: Conn, key: String, value: String) = __native__("Redis.lpush", conn.handle, key, value)
-redisLrange(conn: Conn, key: String, start: Int, stop: Int) = __native__("Redis.lrange", conn.handle, key, start, stop)
-redisDel(conn: Conn, key: String) = __native__("Redis.del", conn.handle, key)
+
+# Async wrappers - call then receive
+redisPing(conn: Conn) = {
+    __native__("Redis.ping", conn.handle)
+    receive { msg -> msg }
+}
+
+redisSet(conn: Conn, key: String, value: String) = {
+    __native__("Redis.set", conn.handle, key, value)
+    receive { msg -> msg }
+}
+
+redisGet(conn: Conn, key: String) = {
+    __native__("Redis.get", conn.handle, key)
+    receive { msg -> msg }
+}
+
+redisExists(conn: Conn, key: String) = {
+    __native__("Redis.exists", conn.handle, key)
+    receive { msg -> msg }
+}
+
+redisLpush(conn: Conn, key: String, value: String) = {
+    __native__("Redis.lpush", conn.handle, key, value)
+    receive { msg -> msg }
+}
+
+redisLrange(conn: Conn, key: String, start: Int, stop: Int) = {
+    __native__("Redis.lrange", conn.handle, key, start, stop)
+    receive { msg -> msg }
+}
+
+redisDel(conn: Conn, key: String) = {
+    __native__("Redis.del", conn.handle, key)
+    receive { msg -> msg }
+}
 
 main() = {
     println("Connecting to Redis...")
@@ -51,8 +83,8 @@ main() = {
 
     # Cleanup
     println("Cleaning up test keys...")
-    redisDel(conn, "nostos:test")
-    redisDel(conn, "nostos:list")
+    del1 = redisDel(conn, "nostos:test")
+    del2 = redisDel(conn, "nostos:list")
 
     println("All tests passed!")
     0

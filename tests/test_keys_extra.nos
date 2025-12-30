@@ -1,0 +1,36 @@
+# Test KEYS pattern matching
+type Conn = { handle: Any }
+
+redisConnect(url: String) -> Conn = Conn(__native__("Redis.connect", url))
+redisSet(conn: Conn, key: String, value: String) = { __native__("Redis.set", conn.handle, key, value); receive { msg -> msg } }
+redisDel(conn: Conn, key: String) = { __native__("Redis.del", conn.handle, key); receive { msg -> msg } }
+redisKeys(conn: Conn, pattern: String) = { __native__("Redis.keys", conn.handle, pattern); receive { msg -> msg } }
+
+isOk(result: (String, Any)) -> Bool = match result { ("ok", _) -> true, _ -> false }
+check(name: String, ok: Bool) = if ok then println("  PASS: " ++ name) else println("  FAIL: " ++ name)
+
+main() = {
+    println("=== Testing KEYS Pattern ===")
+    conn = redisConnect("redis://127.0.0.1/")
+
+    # Clean up first
+    redisDel(conn, "test:keys:a")
+    redisDel(conn, "test:keys:b")
+    redisDel(conn, "test:keys:c")
+
+    # Create test keys
+    redisSet(conn, "test:keys:a", "1")
+    redisSet(conn, "test:keys:b", "2")
+    redisSet(conn, "test:keys:c", "3")
+
+    ("ok", keys) = redisKeys(conn, "test:keys:*")
+    check("KEYS pattern", length(keys) == 3)
+
+    # Cleanup
+    redisDel(conn, "test:keys:a")
+    redisDel(conn, "test:keys:b")
+    redisDel(conn, "test:keys:c")
+
+    println("KEYS tests completed!")
+    0
+}

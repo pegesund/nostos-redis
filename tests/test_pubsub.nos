@@ -1,0 +1,21 @@
+# Test Pub/Sub operations
+type Conn = { handle: Any }
+
+redisConnect(url: String) -> Conn = Conn(__native__("Redis.connect", url))
+redisPublish(conn: Conn, channel: String, message: String) = { __native__("Redis.publish", conn.handle, channel, message); receive { msg -> msg } }
+
+isOk(result: (String, Any)) -> Bool = match result { ("ok", _) -> true, _ -> false }
+check(name: String, ok: Bool) = if ok then println("  PASS: " ++ name) else println("  FAIL: " ++ name)
+
+main() = {
+    println("=== Testing Pub/Sub ===")
+    conn = redisConnect("redis://127.0.0.1/")
+
+    # PUBLISH returns number of subscribers (0 if none)
+    ("ok", count) = redisPublish(conn, "test:channel", "hello")
+    check("PUBLISH", count >= 0)
+
+    println("Pub/Sub tests completed!")
+    println("(Note: SUBSCRIBE requires a separate long-running process)")
+    0
+}

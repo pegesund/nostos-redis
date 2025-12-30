@@ -1,0 +1,36 @@
+# Test counter operations
+type Conn = { handle: Any }
+
+redisConnect(url: String) -> Conn = Conn(__native__("Redis.connect", url))
+redisSet(conn: Conn, key: String, value: String) = { __native__("Redis.set", conn.handle, key, value); receive { msg -> msg } }
+redisDel(conn: Conn, key: String) = { __native__("Redis.del", conn.handle, key); receive { msg -> msg } }
+redisIncr(conn: Conn, key: String) = { __native__("Redis.incr", conn.handle, key); receive { msg -> msg } }
+redisIncrby(conn: Conn, key: String, amount: Int) = { __native__("Redis.incrby", conn.handle, key, amount); receive { msg -> msg } }
+redisDecr(conn: Conn, key: String) = { __native__("Redis.decr", conn.handle, key); receive { msg -> msg } }
+redisDecrby(conn: Conn, key: String, amount: Int) = { __native__("Redis.decrby", conn.handle, key, amount); receive { msg -> msg } }
+
+check(name: String, ok: Bool) = if ok then println("  PASS: " ++ name) else println("  FAIL: " ++ name)
+
+main() = {
+    println("=== Testing Counter Operations ===")
+    conn = redisConnect("redis://127.0.0.1/")
+
+    redisDel(conn, "test:counter")
+    redisSet(conn, "test:counter", "10")
+
+    ("ok", v1) = redisIncr(conn, "test:counter")
+    check("INCR", v1 == 11)
+
+    ("ok", v2) = redisIncrby(conn, "test:counter", 5)
+    check("INCRBY", v2 == 16)
+
+    ("ok", v3) = redisDecr(conn, "test:counter")
+    check("DECR", v3 == 15)
+
+    ("ok", v4) = redisDecrby(conn, "test:counter", 3)
+    check("DECRBY", v4 == 12)
+
+    redisDel(conn, "test:counter")
+    println("Counter tests completed!")
+    0
+}

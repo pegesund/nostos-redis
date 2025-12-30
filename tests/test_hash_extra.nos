@@ -1,0 +1,34 @@
+# Test additional hash operations
+type Conn = { handle: Any }
+
+redisConnect(url: String) -> Conn = Conn(__native__("Redis.connect", url))
+redisDel(conn: Conn, key: String) = { __native__("Redis.del", conn.handle, key); receive { msg -> msg } }
+redisHset(conn: Conn, key: String, field: String, value: String) = { __native__("Redis.hset", conn.handle, key, field, value); receive { msg -> msg } }
+redisHdel(conn: Conn, key: String, field: String) = { __native__("Redis.hdel", conn.handle, key, field); receive { msg -> msg } }
+redisHgetall(conn: Conn, key: String) = { __native__("Redis.hgetall", conn.handle, key); receive { msg -> msg } }
+redisHexists(conn: Conn, key: String, field: String) = { __native__("Redis.hexists", conn.handle, key, field); receive { msg -> msg } }
+
+isOk(result: (String, Any)) -> Bool = match result { ("ok", _) -> true, _ -> false }
+check(name: String, ok: Bool) = if ok then println("  PASS: " ++ name) else println("  FAIL: " ++ name)
+
+main() = {
+    println("=== Testing Additional Hash Operations ===")
+    conn = redisConnect("redis://127.0.0.1/")
+
+    redisDel(conn, "test:hash2")
+
+    redisHset(conn, "test:hash2", "f1", "v1")
+    redisHset(conn, "test:hash2", "f2", "v2")
+
+    ("ok", all) = redisHgetall(conn, "test:hash2")
+    check("HGETALL", length(all) == 2)
+
+    check("HDEL", isOk(redisHdel(conn, "test:hash2", "f1")))
+
+    ("ok", exists) = redisHexists(conn, "test:hash2", "f1")
+    check("Field deleted", exists == false)
+
+    redisDel(conn, "test:hash2")
+    println("Additional hash tests completed!")
+    0
+}

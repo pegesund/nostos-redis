@@ -1,0 +1,52 @@
+# Test hash operations
+type Conn = { handle: Any }
+
+redisConnect(url: String) -> Conn = Conn(__native__("Redis.connect", url))
+redisDel(conn: Conn, key: String) = { __native__("Redis.del", conn.handle, key); receive { msg -> msg } }
+redisHset(conn: Conn, key: String, field: String, value: String) = { __native__("Redis.hset", conn.handle, key, field, value); receive { msg -> msg } }
+redisHget(conn: Conn, key: String, field: String) = { __native__("Redis.hget", conn.handle, key, field); receive { msg -> msg } }
+redisHmset(conn: Conn, key: String, fields: List) = { __native__("Redis.hmset", conn.handle, key, fields); receive { msg -> msg } }
+redisHmget(conn: Conn, key: String, fields: List) = { __native__("Redis.hmget", conn.handle, key, fields); receive { msg -> msg } }
+redisHincrby(conn: Conn, key: String, field: String, amount: Int) = { __native__("Redis.hincrby", conn.handle, key, field, amount); receive { msg -> msg } }
+redisHkeys(conn: Conn, key: String) = { __native__("Redis.hkeys", conn.handle, key); receive { msg -> msg } }
+redisHvals(conn: Conn, key: String) = { __native__("Redis.hvals", conn.handle, key); receive { msg -> msg } }
+redisHlen(conn: Conn, key: String) = { __native__("Redis.hlen", conn.handle, key); receive { msg -> msg } }
+redisHexists(conn: Conn, key: String, field: String) = { __native__("Redis.hexists", conn.handle, key, field); receive { msg -> msg } }
+
+isOk(result: (String, Any)) -> Bool = match result { ("ok", _) -> true, _ -> false }
+check(name: String, ok: Bool) = if ok then println("  PASS: " ++ name) else println("  FAIL: " ++ name)
+
+main() = {
+    println("=== Testing Hash Operations ===")
+    conn = redisConnect("redis://127.0.0.1/")
+
+    redisDel(conn, "test:hash")
+
+    check("HSET", isOk(redisHset(conn, "test:hash", "field1", "value1")))
+    ("ok", hval) = redisHget(conn, "test:hash", "field1")
+    check("HGET", hval == "value1")
+
+    check("HMSET", isOk(redisHmset(conn, "test:hash", [("f2", "v2"), ("f3", "v3")])))
+    ("ok", hmvals) = redisHmget(conn, "test:hash", ["field1", "f2", "f3"])
+    check("HMGET", length(hmvals) == 3)
+
+    ("ok", hlen) = redisHlen(conn, "test:hash")
+    check("HLEN", hlen == 3)
+
+    ("ok", hkeys) = redisHkeys(conn, "test:hash")
+    check("HKEYS", length(hkeys) == 3)
+
+    ("ok", hvals) = redisHvals(conn, "test:hash")
+    check("HVALS", length(hvals) == 3)
+
+    redisHset(conn, "test:hash", "counter", "10")
+    ("ok", hinc) = redisHincrby(conn, "test:hash", "counter", 5)
+    check("HINCRBY", hinc == 15)
+
+    ("ok", hexists) = redisHexists(conn, "test:hash", "field1")
+    check("HEXISTS", hexists == true)
+
+    redisDel(conn, "test:hash")
+    println("Hash tests completed!")
+    0
+}
