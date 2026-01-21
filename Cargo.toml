@@ -10,7 +10,7 @@ license = "MIT"
 crate-type = ["cdylib"]
 
 [dependencies]
-nostos-extension = { git = "https://github.com/pegesund/nostos", branch = "master" }
+nostos-extension = { path = "../nostos_duplicate/crates/extension" }
 redis = { version = "0.27", features = ["tokio-comp", "connection-manager", "streams"] }
 tokio = { version = "1", features = ["rt", "sync", "time"] }
 futures = "0.3"

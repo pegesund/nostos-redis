@@ -50,92 +50,96 @@ fn redis_cleanup(ptr: usize, type_id: u64) {
 }
 
 fn register(reg: &mut ExtRegistry) {
-    // Connection management
-    reg.add("Redis.connect", redis_connect);
+    // Declare opaque types
+    reg.add_opaque_type("RedisConnection");
+    reg.add_opaque_type("Subscription");
 
-    // Key-value operations
-    reg.add("Redis.get", redis_get);
-    reg.add("Redis.set", redis_set);
-    reg.add("Redis.del", redis_del);
-    reg.add("Redis.exists", redis_exists);
+    // Connection management
+    reg.add_fn("Redis.connect", "(String) -> RedisConnection", redis_connect);
+
+    // Key-value operations (async - return Unit, results via message)
+    reg.add_fn("Redis.get", "(RedisConnection, String) -> Unit", redis_get);
+    reg.add_fn("Redis.set", "(RedisConnection, String, String) -> Unit", redis_set);
+    reg.add_fn("Redis.del", "(RedisConnection, String) -> Unit", redis_del);
+    reg.add_fn("Redis.exists", "(RedisConnection, String) -> Unit", redis_exists);
 
     // Key operations
-    reg.add("Redis.keys", redis_keys);
-    reg.add("Redis.expire", redis_expire);
-    reg.add("Redis.ttl", redis_ttl);
-    reg.add("Redis.rename", redis_rename);
-    reg.add("Redis.type", redis_type);
-    reg.add("Redis.scan", redis_scan);
-    reg.add("Redis.persist", redis_persist);
+    reg.add_fn("Redis.keys", "(RedisConnection, String) -> Unit", redis_keys);
+    reg.add_fn("Redis.expire", "(RedisConnection, String, Int) -> Unit", redis_expire);
+    reg.add_fn("Redis.ttl", "(RedisConnection, String) -> Unit", redis_ttl);
+    reg.add_fn("Redis.rename", "(RedisConnection, String, String) -> Unit", redis_rename);
+    reg.add_fn("Redis.type", "(RedisConnection, String) -> Unit", redis_type);
+    reg.add_fn("Redis.scan", "(RedisConnection, Int) -> Unit", redis_scan);
+    reg.add_fn("Redis.persist", "(RedisConnection, String) -> Unit", redis_persist);
 
     // List operations
-    reg.add("Redis.lpush", redis_lpush);
-    reg.add("Redis.rpush", redis_rpush);
-    reg.add("Redis.lpop", redis_lpop);
-    reg.add("Redis.rpop", redis_rpop);
-    reg.add("Redis.lrange", redis_lrange);
-    reg.add("Redis.llen", redis_llen);
+    reg.add_fn("Redis.lpush", "(RedisConnection, String, String) -> Unit", redis_lpush);
+    reg.add_fn("Redis.rpush", "(RedisConnection, String, String) -> Unit", redis_rpush);
+    reg.add_fn("Redis.lpop", "(RedisConnection, String) -> Unit", redis_lpop);
+    reg.add_fn("Redis.rpop", "(RedisConnection, String) -> Unit", redis_rpop);
+    reg.add_fn("Redis.lrange", "(RedisConnection, String, Int, Int) -> Unit", redis_lrange);
+    reg.add_fn("Redis.llen", "(RedisConnection, String) -> Unit", redis_llen);
 
     // Hash operations
-    reg.add("Redis.hset", redis_hset);
-    reg.add("Redis.hget", redis_hget);
-    reg.add("Redis.hdel", redis_hdel);
-    reg.add("Redis.hgetall", redis_hgetall);
-    reg.add("Redis.hmset", redis_hmset);
-    reg.add("Redis.hmget", redis_hmget);
-    reg.add("Redis.hincrby", redis_hincrby);
-    reg.add("Redis.hkeys", redis_hkeys);
-    reg.add("Redis.hvals", redis_hvals);
-    reg.add("Redis.hlen", redis_hlen);
-    reg.add("Redis.hexists", redis_hexists);
+    reg.add_fn("Redis.hset", "(RedisConnection, String, String, String) -> Unit", redis_hset);
+    reg.add_fn("Redis.hget", "(RedisConnection, String, String) -> Unit", redis_hget);
+    reg.add_fn("Redis.hdel", "(RedisConnection, String, String) -> Unit", redis_hdel);
+    reg.add_fn("Redis.hgetall", "(RedisConnection, String) -> Unit", redis_hgetall);
+    reg.add_fn("Redis.hmset", "(RedisConnection, String, List[(String, String)]) -> Unit", redis_hmset);
+    reg.add_fn("Redis.hmget", "(RedisConnection, String, List[String]) -> Unit", redis_hmget);
+    reg.add_fn("Redis.hincrby", "(RedisConnection, String, String, Int) -> Unit", redis_hincrby);
+    reg.add_fn("Redis.hkeys", "(RedisConnection, String) -> Unit", redis_hkeys);
+    reg.add_fn("Redis.hvals", "(RedisConnection, String) -> Unit", redis_hvals);
+    reg.add_fn("Redis.hlen", "(RedisConnection, String) -> Unit", redis_hlen);
+    reg.add_fn("Redis.hexists", "(RedisConnection, String, String) -> Unit", redis_hexists);
 
     // Set operations
-    reg.add("Redis.sadd", redis_sadd);
-    reg.add("Redis.srem", redis_srem);
-    reg.add("Redis.smembers", redis_smembers);
-    reg.add("Redis.sismember", redis_sismember);
-    reg.add("Redis.scard", redis_scard);
-    reg.add("Redis.spop", redis_spop);
-    reg.add("Redis.srandmember", redis_srandmember);
-    reg.add("Redis.sunion", redis_sunion);
-    reg.add("Redis.sinter", redis_sinter);
-    reg.add("Redis.sdiff", redis_sdiff);
+    reg.add_fn("Redis.sadd", "(RedisConnection, String, String) -> Unit", redis_sadd);
+    reg.add_fn("Redis.srem", "(RedisConnection, String, String) -> Unit", redis_srem);
+    reg.add_fn("Redis.smembers", "(RedisConnection, String) -> Unit", redis_smembers);
+    reg.add_fn("Redis.sismember", "(RedisConnection, String, String) -> Unit", redis_sismember);
+    reg.add_fn("Redis.scard", "(RedisConnection, String) -> Unit", redis_scard);
+    reg.add_fn("Redis.spop", "(RedisConnection, String) -> Unit", redis_spop);
+    reg.add_fn("Redis.srandmember", "(RedisConnection, String) -> Unit", redis_srandmember);
+    reg.add_fn("Redis.sunion", "(RedisConnection, List[String]) -> Unit", redis_sunion);
+    reg.add_fn("Redis.sinter", "(RedisConnection, List[String]) -> Unit", redis_sinter);
+    reg.add_fn("Redis.sdiff", "(RedisConnection, List[String]) -> Unit", redis_sdiff);
 
     // Sorted Set operations
-    reg.add("Redis.zadd", redis_zadd);
-    reg.add("Redis.zrem", redis_zrem);
-    reg.add("Redis.zscore", redis_zscore);
-    reg.add("Redis.zrank", redis_zrank);
-    reg.add("Redis.zrange", redis_zrange);
-    reg.add("Redis.zrevrange", redis_zrevrange);
-    reg.add("Redis.zrangebyscore", redis_zrangebyscore);
-    reg.add("Redis.zincrby", redis_zincrby);
-    reg.add("Redis.zcard", redis_zcard);
-    reg.add("Redis.zcount", redis_zcount);
+    reg.add_fn("Redis.zadd", "(RedisConnection, String, Float, String) -> Unit", redis_zadd);
+    reg.add_fn("Redis.zrem", "(RedisConnection, String, String) -> Unit", redis_zrem);
+    reg.add_fn("Redis.zscore", "(RedisConnection, String, String) -> Unit", redis_zscore);
+    reg.add_fn("Redis.zrank", "(RedisConnection, String, String) -> Unit", redis_zrank);
+    reg.add_fn("Redis.zrange", "(RedisConnection, String, Int, Int) -> Unit", redis_zrange);
+    reg.add_fn("Redis.zrevrange", "(RedisConnection, String, Int, Int) -> Unit", redis_zrevrange);
+    reg.add_fn("Redis.zrangebyscore", "(RedisConnection, String, Float, Float) -> Unit", redis_zrangebyscore);
+    reg.add_fn("Redis.zincrby", "(RedisConnection, String, Float, String) -> Unit", redis_zincrby);
+    reg.add_fn("Redis.zcard", "(RedisConnection, String) -> Unit", redis_zcard);
+    reg.add_fn("Redis.zcount", "(RedisConnection, String, Float, Float) -> Unit", redis_zcount);
 
     // Pub/Sub
-    reg.add("Redis.publish", redis_publish);
-    reg.add("Redis.subscribe", redis_subscribe);
-    reg.add("Redis.psubscribe", redis_psubscribe);
-    reg.add("Redis.unsubscribe", redis_unsubscribe);
+    reg.add_fn("Redis.publish", "(RedisConnection, String, String) -> Unit", redis_publish);
+    reg.add_fn("Redis.subscribe", "(String, String) -> Subscription", redis_subscribe);
+    reg.add_fn("Redis.psubscribe", "(String, String) -> Subscription", redis_psubscribe);
+    reg.add_fn("Redis.unsubscribe", "(Subscription) -> Unit", redis_unsubscribe);
 
     // Streams
-    reg.add("Redis.xadd", redis_xadd);
-    reg.add("Redis.xread", redis_xread);
-    reg.add("Redis.xrange", redis_xrange);
-    reg.add("Redis.xlen", redis_xlen);
-    reg.add("Redis.xinfo_groups", redis_xinfo_groups);
-    reg.add("Redis.xgroup_create", redis_xgroup_create);
-    reg.add("Redis.xreadgroup", redis_xreadgroup);
-    reg.add("Redis.xack", redis_xack);
+    reg.add_fn("Redis.xadd", "(RedisConnection, String, List[(String, String)]) -> Unit", redis_xadd);
+    reg.add_fn("Redis.xread", "(RedisConnection, List[(String, String)]) -> Unit", redis_xread);
+    reg.add_fn("Redis.xrange", "(RedisConnection, String, String, String) -> Unit", redis_xrange);
+    reg.add_fn("Redis.xlen", "(RedisConnection, String) -> Unit", redis_xlen);
+    reg.add_fn("Redis.xinfo_groups", "(RedisConnection, String) -> Unit", redis_xinfo_groups);
+    reg.add_fn("Redis.xgroup_create", "(RedisConnection, String, String, String) -> Unit", redis_xgroup_create);
+    reg.add_fn("Redis.xreadgroup", "(RedisConnection, String, String, List[(String, String)]) -> Unit", redis_xreadgroup);
+    reg.add_fn("Redis.xack", "(RedisConnection, String, String, List[String]) -> Unit", redis_xack);
 
     // Utility
-    reg.add("Redis.ping", redis_ping);
-    reg.add("Redis.flushdb", redis_flushdb);
-    reg.add("Redis.incr", redis_incr);
-    reg.add("Redis.incrby", redis_incrby);
-    reg.add("Redis.decr", redis_decr);
-    reg.add("Redis.decrby", redis_decrby);
+    reg.add_fn("Redis.ping", "(RedisConnection) -> Unit", redis_ping);
+    reg.add_fn("Redis.flushdb", "(RedisConnection) -> Unit", redis_flushdb);
+    reg.add_fn("Redis.incr", "(RedisConnection, String) -> Unit", redis_incr);
+    reg.add_fn("Redis.incrby", "(RedisConnection, String, Int) -> Unit", redis_incrby);
+    reg.add_fn("Redis.decr", "(RedisConnection, String) -> Unit", redis_decr);
+    reg.add_fn("Redis.decrby", "(RedisConnection, String, Int) -> Unit", redis_decrby);
 }
 
 // Helper to extract connection from GcHandle
