@@ -1,10 +1,9 @@
 # Test Pub/Sub operations
-type Conn = { handle: Any }
 
-redisConnect(url: String) -> Conn = Conn(__native__("Redis.connect", url))
-redisPublish(conn: Conn, channel: String, message: String) = { __native__("Redis.publish", conn.handle, channel, message); receive { msg -> msg } }
+redisConnect(url: String) = __native__("Redis.connect", url)
+redisPublish(conn, channel: String, message: String) = { __native__("Redis.publish", conn, channel, message); receive { msg -> msg } }
 
-isOk(result: (String, Any)) -> Bool = match result { ("ok", _) -> true, _ -> false }
+isOk(result) = match result { ("ok", _) -> true, _ -> false }
 check(name: String, ok: Bool) = if ok then println("  PASS: " ++ name) else println("  FAIL: " ++ name)
 
 main() = {

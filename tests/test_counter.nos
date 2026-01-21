@@ -1,13 +1,12 @@
 # Test counter operations
-type Conn = { handle: Any }
 
-redisConnect(url: String) -> Conn = Conn(__native__("Redis.connect", url))
-redisSet(conn: Conn, key: String, value: String) = { __native__("Redis.set", conn.handle, key, value); receive { msg -> msg } }
-redisDel(conn: Conn, key: String) = { __native__("Redis.del", conn.handle, key); receive { msg -> msg } }
-redisIncr(conn: Conn, key: String) = { __native__("Redis.incr", conn.handle, key); receive { msg -> msg } }
-redisIncrby(conn: Conn, key: String, amount: Int) = { __native__("Redis.incrby", conn.handle, key, amount); receive { msg -> msg } }
-redisDecr(conn: Conn, key: String) = { __native__("Redis.decr", conn.handle, key); receive { msg -> msg } }
-redisDecrby(conn: Conn, key: String, amount: Int) = { __native__("Redis.decrby", conn.handle, key, amount); receive { msg -> msg } }
+redisConnect(url: String) = __native__("Redis.connect", url)
+redisSet(conn, key: String, value: String) = { __native__("Redis.set", conn, key, value); receive { msg -> msg } }
+redisDel(conn, key: String) = { __native__("Redis.del", conn, key); receive { msg -> msg } }
+redisIncr(conn, key: String) = { __native__("Redis.incr", conn, key); receive { msg -> msg } }
+redisIncrby(conn, key: String, amount: Int) = { __native__("Redis.incrby", conn, key, amount); receive { msg -> msg } }
+redisDecr(conn, key: String) = { __native__("Redis.decr", conn, key); receive { msg -> msg } }
+redisDecrby(conn, key: String, amount: Int) = { __native__("Redis.decrby", conn, key, amount); receive { msg -> msg } }
 
 check(name: String, ok: Bool) = if ok then println("  PASS: " ++ name) else println("  FAIL: " ++ name)
 

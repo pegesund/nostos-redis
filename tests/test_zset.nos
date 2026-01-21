@@ -1,18 +1,17 @@
 # Test sorted set operations
-type Conn = { handle: Any }
 
-redisConnect(url: String) -> Conn = Conn(__native__("Redis.connect", url))
-redisDel(conn: Conn, key: String) = { __native__("Redis.del", conn.handle, key); receive { msg -> msg } }
-redisZadd(conn: Conn, key: String, score: Float, member: String) = { __native__("Redis.zadd", conn.handle, key, score, member); receive { msg -> msg } }
-redisZscore(conn: Conn, key: String, member: String) = { __native__("Redis.zscore", conn.handle, key, member); receive { msg -> msg } }
-redisZrank(conn: Conn, key: String, member: String) = { __native__("Redis.zrank", conn.handle, key, member); receive { msg -> msg } }
-redisZrange(conn: Conn, key: String, start: Int, stop: Int) = { __native__("Redis.zrange", conn.handle, key, start, stop); receive { msg -> msg } }
-redisZrevrange(conn: Conn, key: String, start: Int, stop: Int) = { __native__("Redis.zrevrange", conn.handle, key, start, stop); receive { msg -> msg } }
-redisZincrby(conn: Conn, key: String, increment: Float, member: String) = { __native__("Redis.zincrby", conn.handle, key, increment, member); receive { msg -> msg } }
-redisZcard(conn: Conn, key: String) = { __native__("Redis.zcard", conn.handle, key); receive { msg -> msg } }
-redisZcount(conn: Conn, key: String, min: Float, max: Float) = { __native__("Redis.zcount", conn.handle, key, min, max); receive { msg -> msg } }
+redisConnect(url: String) = __native__("Redis.connect", url)
+redisDel(conn, key: String) = { __native__("Redis.del", conn, key); receive { msg -> msg } }
+redisZadd(conn, key: String, score: Float, member: String) = { __native__("Redis.zadd", conn, key, score, member); receive { msg -> msg } }
+redisZscore(conn, key: String, member: String) = { __native__("Redis.zscore", conn, key, member); receive { msg -> msg } }
+redisZrank(conn, key: String, member: String) = { __native__("Redis.zrank", conn, key, member); receive { msg -> msg } }
+redisZrange(conn, key: String, start: Int, stop: Int) = { __native__("Redis.zrange", conn, key, start, stop); receive { msg -> msg } }
+redisZrevrange(conn, key: String, start: Int, stop: Int) = { __native__("Redis.zrevrange", conn, key, start, stop); receive { msg -> msg } }
+redisZincrby(conn, key: String, increment: Float, member: String) = { __native__("Redis.zincrby", conn, key, increment, member); receive { msg -> msg } }
+redisZcard(conn, key: String) = { __native__("Redis.zcard", conn, key); receive { msg -> msg } }
+redisZcount(conn, key: String, min: Float, max: Float) = { __native__("Redis.zcount", conn, key, min, max); receive { msg -> msg } }
 
-isOk(result: (String, Any)) -> Bool = match result { ("ok", _) -> true, _ -> false }
+isOk(result) = match result { ("ok", _) -> true, _ -> false }
 check(name: String, ok: Bool) = if ok then println("  PASS: " ++ name) else println("  FAIL: " ++ name)
 
 main() = {

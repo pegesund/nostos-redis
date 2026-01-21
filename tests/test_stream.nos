@@ -1,13 +1,12 @@
 # Test stream operations
-type Conn = { handle: Any }
 
-redisConnect(url: String) -> Conn = Conn(__native__("Redis.connect", url))
-redisDel(conn: Conn, key: String) = { __native__("Redis.del", conn.handle, key); receive { msg -> msg } }
-redisXadd(conn: Conn, stream: String, fields: List) = { __native__("Redis.xadd", conn.handle, stream, fields); receive { msg -> msg } }
-redisXlen(conn: Conn, stream: String) = { __native__("Redis.xlen", conn.handle, stream); receive { msg -> msg } }
-redisXrange(conn: Conn, stream: String, startId: String, endId: String) = { __native__("Redis.xrange", conn.handle, stream, startId, endId); receive { msg -> msg } }
+redisConnect(url: String) = __native__("Redis.connect", url)
+redisDel(conn, key: String) = { __native__("Redis.del", conn, key); receive { msg -> msg } }
+redisXadd(conn, stream: String, fields: List[(String, String)]) = { __native__("Redis.xadd", conn, stream, fields); receive { msg -> msg } }
+redisXlen(conn, stream: String) = { __native__("Redis.xlen", conn, stream); receive { msg -> msg } }
+redisXrange(conn, stream: String, startId: String, endId: String) = { __native__("Redis.xrange", conn, stream, startId, endId); receive { msg -> msg } }
 
-isOk(result: (String, Any)) -> Bool = match result { ("ok", _) -> true, _ -> false }
+isOk(result) = match result { ("ok", _) -> true, _ -> false }
 check(name: String, ok: Bool) = if ok then println("  PASS: " ++ name) else println("  FAIL: " ++ name)
 
 main() = {
@@ -16,10 +15,12 @@ main() = {
 
     redisDel(conn, "test:stream")
 
-    ("ok", id1) = redisXadd(conn, "test:stream", [("field1", "value1")])
-    check("XADD", length(id1) > 0)
+    fields1: List[(String, String)] = [("field1", "value1")]
+    ("ok", id1) = redisXadd(conn, "test:stream", fields1)
+    check("XADD", id1 != "")
 
-    redisXadd(conn, "test:stream", [("field2", "value2")])
+    fields2: List[(String, String)] = [("field2", "value2")]
+    redisXadd(conn, "test:stream", fields2)
 
     ("ok", xlen) = redisXlen(conn, "test:stream")
     check("XLEN", xlen == 2)

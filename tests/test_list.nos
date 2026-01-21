@@ -1,14 +1,13 @@
 # Test list operations
-type Conn = { handle: Any }
 
-redisConnect(url: String) -> Conn = Conn(__native__("Redis.connect", url))
-redisDel(conn: Conn, key: String) = { __native__("Redis.del", conn.handle, key); receive { msg -> msg } }
-redisLpush(conn: Conn, key: String, value: String) = { __native__("Redis.lpush", conn.handle, key, value); receive { msg -> msg } }
-redisRpush(conn: Conn, key: String, value: String) = { __native__("Redis.rpush", conn.handle, key, value); receive { msg -> msg } }
-redisLpop(conn: Conn, key: String) = { __native__("Redis.lpop", conn.handle, key); receive { msg -> msg } }
-redisRpop(conn: Conn, key: String) = { __native__("Redis.rpop", conn.handle, key); receive { msg -> msg } }
-redisLrange(conn: Conn, key: String, start: Int, stop: Int) = { __native__("Redis.lrange", conn.handle, key, start, stop); receive { msg -> msg } }
-redisLlen(conn: Conn, key: String) = { __native__("Redis.llen", conn.handle, key); receive { msg -> msg } }
+redisConnect(url: String) = __native__("Redis.connect", url)
+redisDel(conn, key: String) = { __native__("Redis.del", conn, key); receive { msg -> msg } }
+redisLpush(conn, key: String, value: String) = { __native__("Redis.lpush", conn, key, value); receive { msg -> msg } }
+redisRpush(conn, key: String, value: String) = { __native__("Redis.rpush", conn, key, value); receive { msg -> msg } }
+redisLpop(conn, key: String) = { __native__("Redis.lpop", conn, key); receive { msg -> msg } }
+redisRpop(conn, key: String) = { __native__("Redis.rpop", conn, key); receive { msg -> msg } }
+redisLrange(conn, key: String, start: Int, stop: Int) = { __native__("Redis.lrange", conn, key, start, stop); receive { msg -> msg } }
+redisLlen(conn, key: String) = { __native__("Redis.llen", conn, key); receive { msg -> msg } }
 
 check(name: String, ok: Bool) = if ok then println("  PASS: " ++ name) else println("  FAIL: " ++ name)
 

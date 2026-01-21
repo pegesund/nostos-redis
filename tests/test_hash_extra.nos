@@ -1,14 +1,13 @@
 # Test additional hash operations
-type Conn = { handle: Any }
 
-redisConnect(url: String) -> Conn = Conn(__native__("Redis.connect", url))
-redisDel(conn: Conn, key: String) = { __native__("Redis.del", conn.handle, key); receive { msg -> msg } }
-redisHset(conn: Conn, key: String, field: String, value: String) = { __native__("Redis.hset", conn.handle, key, field, value); receive { msg -> msg } }
-redisHdel(conn: Conn, key: String, field: String) = { __native__("Redis.hdel", conn.handle, key, field); receive { msg -> msg } }
-redisHgetall(conn: Conn, key: String) = { __native__("Redis.hgetall", conn.handle, key); receive { msg -> msg } }
-redisHexists(conn: Conn, key: String, field: String) = { __native__("Redis.hexists", conn.handle, key, field); receive { msg -> msg } }
+redisConnect(url: String) = __native__("Redis.connect", url)
+redisDel(conn, key: String) = { __native__("Redis.del", conn, key); receive { msg -> msg } }
+redisHset(conn, key: String, field: String, value: String) = { __native__("Redis.hset", conn, key, field, value); receive { msg -> msg } }
+redisHdel(conn, key: String, field: String) = { __native__("Redis.hdel", conn, key, field); receive { msg -> msg } }
+redisHgetall(conn, key: String) = { __native__("Redis.hgetall", conn, key); receive { msg -> msg } }
+redisHexists(conn, key: String, field: String) = { __native__("Redis.hexists", conn, key, field); receive { msg -> msg } }
 
-isOk(result: (String, Any)) -> Bool = match result { ("ok", _) -> true, _ -> false }
+isOk(result) = match result { ("ok", _) -> true, _ -> false }
 check(name: String, ok: Bool) = if ok then println("  PASS: " ++ name) else println("  FAIL: " ++ name)
 
 main() = {

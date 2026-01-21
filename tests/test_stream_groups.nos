@@ -1,17 +1,16 @@
 # Test Stream Consumer Group variants
-type Conn = { handle: Any }
 
-redisConnect(url: String) -> Conn = Conn(__native__("Redis.connect", url))
-redisDel(conn: Conn, key: String) = { __native__("Redis.del", conn.handle, key); receive { msg -> msg } }
-redisXadd(conn: Conn, stream: String, fields: List) = { __native__("Redis.xadd", conn.handle, stream, fields); receive { msg -> msg } }
-redisXgroupCreate(conn: Conn, stream: String, group: String, startId: String) = { __native__("Redis.xgroup_create", conn.handle, stream, group, startId); receive { msg -> msg } }
-redisXgroupCreateMkstream(conn: Conn, stream: String, group: String, startId: String) = { __native__("Redis.xgroup_create", conn.handle, stream, group, startId, true); receive { msg -> msg } }
-redisXreadgroup(conn: Conn, group: String, consumer: String, streams: List) = { __native__("Redis.xreadgroup", conn.handle, group, consumer, streams); receive { msg -> msg } }
-redisXreadgroupCount(conn: Conn, group: String, consumer: String, streams: List, count: Int) = { __native__("Redis.xreadgroup", conn.handle, group, consumer, streams, count); receive { msg -> msg } }
-redisXreadgroupBlock(conn: Conn, group: String, consumer: String, streams: List, count: Int, blockMs: Int) = { __native__("Redis.xreadgroup", conn.handle, group, consumer, streams, count, blockMs); receive { msg -> msg } }
-redisXack(conn: Conn, stream: String, group: String, ids: List) = { __native__("Redis.xack", conn.handle, stream, group, ids); receive { msg -> msg } }
+redisConnect(url: String) = __native__("Redis.connect", url)
+redisDel(conn, key: String) = { __native__("Redis.del", conn, key); receive { msg -> msg } }
+redisXadd(conn, stream: String, fields: List[(String, String)]) = { __native__("Redis.xadd", conn, stream, fields); receive { msg -> msg } }
+redisXgroupCreate(conn, stream: String, group: String, startId: String) = { __native__("Redis.xgroup_create", conn, stream, group, startId); receive { msg -> msg } }
+redisXgroupCreateMkstream(conn, stream: String, group: String, startId: String) = { __native__("Redis.xgroup_create", conn, stream, group, startId, true); receive { msg -> msg } }
+redisXreadgroup(conn, group: String, consumer: String, streams: List[(String, String)]) = { __native__("Redis.xreadgroup", conn, group, consumer, streams); receive { msg -> msg } }
+redisXreadgroupCount(conn, group: String, consumer: String, streams: List[(String, String)], count: Int) = { __native__("Redis.xreadgroup", conn, group, consumer, streams, count); receive { msg -> msg } }
+redisXreadgroupBlock(conn, group: String, consumer: String, streams: List[(String, String)], count: Int, blockMs: Int) = { __native__("Redis.xreadgroup", conn, group, consumer, streams, count, blockMs); receive { msg -> msg } }
+redisXack(conn, stream: String, group: String, ids: List[String]) = { __native__("Redis.xack", conn, stream, group, ids); receive { msg -> msg } }
 
-isOk(result: (String, Any)) -> Bool = match result { ("ok", _) -> true, _ -> false }
+isOk(result) = match result { ("ok", _) -> true, _ -> false }
 check(name: String, ok: Bool) = if ok then println("  PASS: " ++ name) else println("  FAIL: " ++ name)
 
 main() = {
@@ -25,39 +24,53 @@ main() = {
     check("XGROUP CREATE MKSTREAM", isOk(redisXgroupCreateMkstream(conn, "test:mkstream2", "grp1", "$")))
 
     # Add entries to mkstream
-    redisXadd(conn, "test:mkstream2", [("a", "1")])
-    redisXadd(conn, "test:mkstream2", [("a", "2")])
+    fa: List[(String, String)] = [("a", "1")]
+    fb: List[(String, String)] = [("a", "2")]
+    redisXadd(conn, "test:mkstream2", fa)
+    redisXadd(conn, "test:mkstream2", fb)
 
     # Read from mkstream group
-    ("ok", mk1) = redisXreadgroup(conn, "grp1", "c1", [("test:mkstream2", ">")])
+    mkstreams: List[(String, String)] = [("test:mkstream2", ">")]
+    ("ok", mk1) = redisXreadgroup(conn, "grp1", "c1", mkstreams)
     check("XREADGROUP from mkstream", length(mk1) > 0)
 
     # Setup main test stream
-    ("ok", id1) = redisXadd(conn, "test:grp", [("x", "1")])
-    ("ok", id2) = redisXadd(conn, "test:grp", [("x", "2")])
-    ("ok", id3) = redisXadd(conn, "test:grp", [("x", "3")])
-    ("ok", id4) = redisXadd(conn, "test:grp", [("x", "4")])
-    ("ok", id5) = redisXadd(conn, "test:grp", [("x", "5")])
+    fx1: List[(String, String)] = [("x", "1")]
+    fx2: List[(String, String)] = [("x", "2")]
+    fx3: List[(String, String)] = [("x", "3")]
+    fx4: List[(String, String)] = [("x", "4")]
+    fx5: List[(String, String)] = [("x", "5")]
+    ("ok", id1) = redisXadd(conn, "test:grp", fx1)
+    ("ok", id2) = redisXadd(conn, "test:grp", fx2)
+    ("ok", id3) = redisXadd(conn, "test:grp", fx3)
+    ("ok", id4) = redisXadd(conn, "test:grp", fx4)
+    ("ok", id5) = redisXadd(conn, "test:grp", fx5)
 
     redisXgroupCreate(conn, "test:grp", "mygrp", "0")
 
     # Basic XREADGROUP
-    ("ok", r1) = redisXreadgroup(conn, "mygrp", "worker", [("test:grp", ">")])
+    grpStreams1: List[(String, String)] = [("test:grp", ">")]
+    ("ok", r1) = redisXreadgroup(conn, "mygrp", "worker", grpStreams1)
     check("XREADGROUP basic", length(r1) > 0)
 
     # Add more for COUNT test
-    redisXadd(conn, "test:grp", [("x", "6")])
-    redisXadd(conn, "test:grp", [("x", "7")])
+    fx6: List[(String, String)] = [("x", "6")]
+    fx7: List[(String, String)] = [("x", "7")]
+    redisXadd(conn, "test:grp", fx6)
+    redisXadd(conn, "test:grp", fx7)
 
-    ("ok", r2) = redisXreadgroupCount(conn, "mygrp", "worker", [("test:grp", ">")], 1)
+    grpStreams2: List[(String, String)] = [("test:grp", ">")]
+    ("ok", r2) = redisXreadgroupCount(conn, "mygrp", "worker", grpStreams2, 1)
     check("XREADGROUP COUNT", isOk(("ok", r2)))
 
     # BLOCK test (short timeout)
-    ("ok", r3) = redisXreadgroupBlock(conn, "mygrp", "worker", [("test:grp", ">")], 5, 100)
+    grpStreams3: List[(String, String)] = [("test:grp", ">")]
+    ("ok", r3) = redisXreadgroupBlock(conn, "mygrp", "worker", grpStreams3, 5, 100)
     check("XREADGROUP BLOCK", isOk(("ok", r3)))
 
     # ACK
-    ("ok", acked) = redisXack(conn, "test:grp", "mygrp", [id1, id2])
+    ackIds: List[String] = [id1, id2]
+    ("ok", acked) = redisXack(conn, "test:grp", "mygrp", ackIds)
     check("XACK", acked >= 0)
 
     redisDel(conn, "test:grp")

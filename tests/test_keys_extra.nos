@@ -1,12 +1,11 @@
 # Test KEYS pattern matching
-type Conn = { handle: Any }
 
-redisConnect(url: String) -> Conn = Conn(__native__("Redis.connect", url))
-redisSet(conn: Conn, key: String, value: String) = { __native__("Redis.set", conn.handle, key, value); receive { msg -> msg } }
-redisDel(conn: Conn, key: String) = { __native__("Redis.del", conn.handle, key); receive { msg -> msg } }
-redisKeys(conn: Conn, pattern: String) = { __native__("Redis.keys", conn.handle, pattern); receive { msg -> msg } }
+redisConnect(url: String) = __native__("Redis.connect", url)
+redisSet(conn, key: String, value: String) = { __native__("Redis.set", conn, key, value); receive { msg -> msg } }
+redisDel(conn, key: String) = { __native__("Redis.del", conn, key); receive { msg -> msg } }
+redisKeys(conn, pattern: String) = { __native__("Redis.keys", conn, pattern); receive { msg -> msg } }
 
-isOk(result: (String, Any)) -> Bool = match result { ("ok", _) -> true, _ -> false }
+isOk(result) = match result { ("ok", _) -> true, _ -> false }
 check(name: String, ok: Bool) = if ok then println("  PASS: " ++ name) else println("  FAIL: " ++ name)
 
 main() = {

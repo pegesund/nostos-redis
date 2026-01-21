@@ -1,17 +1,16 @@
 # Test set operations
-type Conn = { handle: Any }
 
-redisConnect(url: String) -> Conn = Conn(__native__("Redis.connect", url))
-redisDel(conn: Conn, key: String) = { __native__("Redis.del", conn.handle, key); receive { msg -> msg } }
-redisSadd(conn: Conn, key: String, member: String) = { __native__("Redis.sadd", conn.handle, key, member); receive { msg -> msg } }
-redisSmembers(conn: Conn, key: String) = { __native__("Redis.smembers", conn.handle, key); receive { msg -> msg } }
-redisSismember(conn: Conn, key: String, member: String) = { __native__("Redis.sismember", conn.handle, key, member); receive { msg -> msg } }
-redisScard(conn: Conn, key: String) = { __native__("Redis.scard", conn.handle, key); receive { msg -> msg } }
-redisSunion(conn: Conn, keys: List) = { __native__("Redis.sunion", conn.handle, keys); receive { msg -> msg } }
-redisSinter(conn: Conn, keys: List) = { __native__("Redis.sinter", conn.handle, keys); receive { msg -> msg } }
-redisSdiff(conn: Conn, keys: List) = { __native__("Redis.sdiff", conn.handle, keys); receive { msg -> msg } }
+redisConnect(url: String) = __native__("Redis.connect", url)
+redisDel(conn, key: String) = { __native__("Redis.del", conn, key); receive { msg -> msg } }
+redisSadd(conn, key: String, member: String) = { __native__("Redis.sadd", conn, key, member); receive { msg -> msg } }
+redisSmembers(conn, key: String) = { __native__("Redis.smembers", conn, key); receive { msg -> msg } }
+redisSismember(conn, key: String, member: String) = { __native__("Redis.sismember", conn, key, member); receive { msg -> msg } }
+redisScard(conn, key: String) = { __native__("Redis.scard", conn, key); receive { msg -> msg } }
+redisSunion(conn, keys: List[String]) = { __native__("Redis.sunion", conn, keys); receive { msg -> msg } }
+redisSinter(conn, keys: List[String]) = { __native__("Redis.sinter", conn, keys); receive { msg -> msg } }
+redisSdiff(conn, keys: List[String]) = { __native__("Redis.sdiff", conn, keys); receive { msg -> msg } }
 
-isOk(result: (String, Any)) -> Bool = match result { ("ok", _) -> true, _ -> false }
+isOk(result) = match result { ("ok", _) -> true, _ -> false }
 check(name: String, ok: Bool) = if ok then println("  PASS: " ++ name) else println("  FAIL: " ++ name)
 
 main() = {
@@ -38,13 +37,16 @@ main() = {
     redisSadd(conn, "test:set2", "c")
     redisSadd(conn, "test:set2", "d")
 
-    ("ok", sunion) = redisSunion(conn, ["test:set1", "test:set2"])
+    keys1: List[String] = ["test:set1", "test:set2"]
+    ("ok", sunion) = redisSunion(conn, keys1)
     check("SUNION", length(sunion) == 4)
 
-    ("ok", sinter) = redisSinter(conn, ["test:set1", "test:set2"])
+    keys2: List[String] = ["test:set1", "test:set2"]
+    ("ok", sinter) = redisSinter(conn, keys2)
     check("SINTER", length(sinter) == 2)
 
-    ("ok", sdiff) = redisSdiff(conn, ["test:set1", "test:set2"])
+    keys3: List[String] = ["test:set1", "test:set2"]
+    ("ok", sdiff) = redisSdiff(conn, keys3)
     check("SDIFF", length(sdiff) == 1)
 
     redisDel(conn, "test:set1")

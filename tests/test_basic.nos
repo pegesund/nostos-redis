@@ -1,14 +1,13 @@
 # Test basic Redis operations
-type Conn = { handle: Any }
 
-redisConnect(url: String) -> Conn = Conn(__native__("Redis.connect", url))
-redisGet(conn: Conn, key: String) = { __native__("Redis.get", conn.handle, key); receive { msg -> msg } }
-redisSet(conn: Conn, key: String, value: String) = { __native__("Redis.set", conn.handle, key, value); receive { msg -> msg } }
-redisDel(conn: Conn, key: String) = { __native__("Redis.del", conn.handle, key); receive { msg -> msg } }
-redisExists(conn: Conn, key: String) = { __native__("Redis.exists", conn.handle, key); receive { msg -> msg } }
-redisPing(conn: Conn) = { __native__("Redis.ping", conn.handle); receive { msg -> msg } }
+redisConnect(url: String) = __native__("Redis.connect", url)
+redisGet(conn, key: String) = { __native__("Redis.get", conn, key); receive { msg -> msg } }
+redisSet(conn, key: String, value: String) = { __native__("Redis.set", conn, key, value); receive { msg -> msg } }
+redisDel(conn, key: String) = { __native__("Redis.del", conn, key); receive { msg -> msg } }
+redisExists(conn, key: String) = { __native__("Redis.exists", conn, key); receive { msg -> msg } }
+redisPing(conn) = { __native__("Redis.ping", conn); receive { msg -> msg } }
 
-isOk(result: (String, Any)) -> Bool = match result { ("ok", _) -> true, _ -> false }
+isOk(result) = match result { ("ok", _) -> true, _ -> false }
 check(name: String, ok: Bool) = if ok then println("  PASS: " ++ name) else println("  FAIL: " ++ name)
 
 main() = {
